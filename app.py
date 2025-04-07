@@ -1,3 +1,4 @@
+
 from flask import Flask, request, jsonify
 import requests
 import base64
@@ -92,7 +93,8 @@ def webhook():
             })
 
     elif intent == "GetRecipesIntent":
-        ingredients = parameters.get("ingredients", [])
+        raw = parameters.get("ingredients", [])
+        ingredients = [i.strip() for i in raw.split(" and ")] if isinstance(raw, str) else raw
         recipes = get_recipes(ingredients)
         if recipes:
             response_text = "\n".join([f"{r['title']} - {r['sourceUrl']}" for r in recipes])
