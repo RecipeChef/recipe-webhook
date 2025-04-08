@@ -48,16 +48,44 @@ CONFIDENCE_THRESHOLD = 0.5
 #             filtered_ingredients.append(concept.name.lower())
 
 #     return filtered_ingredients
+# 2def recognize_ingredients_from_base64(base64_image):
+#     # Fix missing padding (base64 strings must be a multiple of 4)
+#     padded_image = base64_image + "=" * ((4 - len(base64_image) % 4) % 4)
+
+#     request = service_pb2.PostModelOutputsRequest(
+#         model_id="food-item-v1-recognition",
+#         inputs=[
+#             resources_pb2.Input(
+#                 data=resources_pb2.Data(
+#                     image=resources_pb2.Image(base64=base64.b64decode(padded_image))
+#                 )
+#             )
+#         ]
+#     )
+#     response = stub.PostModelOutputs(request, metadata=metadata)
+
+#     if response.status.code != status_code_pb2.SUCCESS:
+#         return []
+
+#     filtered_ingredients = []
+#     for concept in response.outputs[0].data.concepts:
+#         if concept.value >= CONFIDENCE_THRESHOLD and concept.name.lower() not in UNWANTED_WORDS:
+#             filtered_ingredients.append(concept.name.lower())
+
+#     return filtered_ingredients
+
 def recognize_ingredients_from_base64(base64_image):
-    # Fix missing padding (base64 strings must be a multiple of 4)
-    padded_image = base64_image + "=" * ((4 - len(base64_image) % 4) % 4)
+    base64_image = base64_image.strip().replace("\n", "").replace("\r", "")
+    base64_image += "=" * ((4 - len(base64_image) % 4) % 4)
+
+    image_bytes = base64.b64decode(base64_image)
 
     request = service_pb2.PostModelOutputsRequest(
         model_id="food-item-v1-recognition",
         inputs=[
             resources_pb2.Input(
                 data=resources_pb2.Data(
-                    image=resources_pb2.Image(base64=base64.b64decode(padded_image))
+                    image=resources_pb2.Image(base64=image_bytes)
                 )
             )
         ]
@@ -73,6 +101,7 @@ def recognize_ingredients_from_base64(base64_image):
             filtered_ingredients.append(concept.name.lower())
 
     return filtered_ingredients
+
 
 # Get full recipe details from Spoonacular
 def get_recipe_details(recipe_id):
