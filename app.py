@@ -109,31 +109,31 @@ def webhook():
             response_text = "Sorry, I couldn't find any recipes with those ingredients."
         return jsonify({"fulfillmentText": response_text})
 
-elif intent == "ShowRecipeDetailsIntent":
-    try:
-        recipe_number = int(parameters.get("recipeNumber"))
-        if 1 <= recipe_number <= len(RECIPE_CACHE):
-            recipe = RECIPE_CACHE[recipe_number - 1]
-            ingredients = "\\n".join(recipe.get("ingredients", []))
-            instructions = recipe.get("instructions", "Instructions not available.")
+    elif intent == "ShowRecipeDetailsIntent":
+        try:
+            recipe_number = int(parameters.get("recipeNumber"))
+            if 1 <= recipe_number <= len(RECIPE_CACHE):
+                recipe = RECIPE_CACHE[recipe_number - 1]
+                ingredients = "\\n".join(recipe.get("ingredients", []))
+                instructions = recipe.get("instructions", "Instructions not available.")
+                return jsonify({
+                    "fulfillmentText": (
+                        f"🍽️ {recipe['title']}\\n"
+                        f"🕒 Ready in: {recipe['readyInMinutes']} minutes | Servings: {recipe['servings']}\\n"
+                        f"📋 Ingredients:\\n{ingredients}\\n"
+                        f"🧑‍🍳 Instructions:\\n{instructions}\\n"
+                        f"🔗 Source: {recipe['sourceUrl']}"
+                    )
+                })
+            else:
+                return jsonify({
+                    "fulfillmentText": "Invalid recipe number. Please pick one from the list."
+                })
+        except Exception as e:
+            logging.error(f"Error in ShowRecipeDetailsIntent: {e}")
             return jsonify({
-                "fulfillmentText": (
-                    f"🍽️ {recipe['title']}\\n"
-                    f"🕒 Ready in: {recipe['readyInMinutes']} minutes | Servings: {recipe['servings']}\\n"
-                    f"📋 Ingredients:\\n{ingredients}\\n"
-                    f"🧑‍🍳 Instructions:\\n{instructions}\\n"
-                    f"🔗 Source: {recipe['sourceUrl']}"
-                )
+                "fulfillmentText": "Something went wrong trying to get that recipe's details."
             })
-        else:
-            return jsonify({
-                "fulfillmentText": "Invalid recipe number. Please pick one from the list."
-            })
-    except Exception as e:
-        logging.error(f"Error in ShowRecipeDetailsIntent: {e}")
-        return jsonify({
-            "fulfillmentText": "Something went wrong trying to get that recipe's details."
-        })
 
 
     elif intent == "RandomRecipeIntent":
