@@ -136,32 +136,32 @@ def webhook():
             })
     
     elif intent == "RandomRecipeIntent":
-    global RECIPE_CACHE  # 👈 must come before any use of RECIPE_CACHE
+        global RECIPE_CACHE
 
-    url = f"https://api.spoonacular.com/recipes/random?number=5&apiKey={SPOONACULAR_API_KEY}"
-    response = requests.get(url)
+        url = f"https://api.spoonacular.com/recipes/random?number=5&apiKey={SPOONACULAR_API_KEY}"
+        response = requests.get(url)
 
-    if response.status_code == 200:
-        data = response.json()
-        if data.get("recipes"):
-            RECIPE_CACHE = []  # Clear and store new random set
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("recipes"):
+                RECIPE_CACHE = []
 
-            for recipe in data["recipes"]:
-                RECIPE_CACHE.append({
-                    "title": recipe.get("title", "Unknown"),
-                    "sourceUrl": recipe.get("sourceUrl", "No URL"),
-                    "readyInMinutes": recipe.get("readyInMinutes", "N/A"),
-                    "servings": recipe.get("servings", "N/A"),
-                    "ingredients": [ing["original"] for ing in recipe.get("extendedIngredients", [])],
-                    "instructions": recipe.get("instructions", "Instructions not available.")
+                for recipe in data["recipes"]:
+                    RECIPE_CACHE.append({
+                        "title": recipe.get("title", "Unknown"),
+                        "sourceUrl": recipe.get("sourceUrl", "No URL"),
+                        "readyInMinutes": recipe.get("readyInMinutes", "N/A"),
+                        "servings": recipe.get("servings", "N/A"),
+                        "ingredients": [ing["original"] for ing in recipe.get("extendedIngredients", [])],
+                        "instructions": recipe.get("instructions", "Instructions not available.")
+                    })
+
+                text = "\n".join([f"{idx + 1}. {r['title']}" for idx, r in enumerate(RECIPE_CACHE)])
+                return jsonify({
+                    "fulfillmentText": f"🍽️ Here are 5 random recipes:\n{text}\n\nSay something like 'Show me recipe 2' for details."
                 })
 
-            # Show list of titles to user
-            text = "\n".join([f"{idx + 1}. {r['title']}" for idx, r in enumerate(RECIPE_CACHE)])
-            return jsonify({
-                "fulfillmentText": f"🍽️ Here are 5 random recipes:\n{text}\n\nSay something like 'Show me recipe 2' for details."
-            })
+        return jsonify({"fulfillmentText": "Sorry, I couldn't fetch random recipes right now."})
 
-    return jsonify({"fulfillmentText": "Sorry, I couldn't fetch random recipes right now."})
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
