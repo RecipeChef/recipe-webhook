@@ -109,7 +109,7 @@ def webhook():
             response_text = "Sorry, I couldn't find any recipes with those ingredients."
         return jsonify({"fulfillmentText": response_text})
 
-    elif intent == "ShowRecipeDetailsIntent":
+elif intent == "ShowRecipeDetailsIntent":
     try:
         recipe_number = int(parameters.get("recipeNumber"))
         if 1 <= recipe_number <= len(RECIPE_CACHE):
