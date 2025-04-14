@@ -137,6 +137,7 @@ def webhook():
     
     elif intent == "RandomRecipeIntent":
         global RECIPE_CACHE
+        
         url = f"https://api.spoonacular.com/recipes/random?number=5&apiKey={SPOONACULAR_API_KEY}"
         response = requests.get(url)
     
