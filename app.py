@@ -136,8 +136,8 @@ def webhook():
             })
 
     elif intent == "RandomRecipeIntent":
-    url = f"https://api.spoonacular.com/recipes/random?number=5&apiKey={SPOONACULAR_API_KEY}"
-    response = requests.get(url)
+        url = f"https://api.spoonacular.com/recipes/random?number=5&apiKey={SPOONACULAR_API_KEY}"
+        response = requests.get(url)
 
         if response.status_code == 200:
             data = response.json()
