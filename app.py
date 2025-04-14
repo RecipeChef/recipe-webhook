@@ -134,37 +134,32 @@ def webhook():
             return jsonify({
                 "fulfillmentText": "Something went wrong trying to get that recipe's details."
             })
-
+    
     elif intent == "RandomRecipeIntent":
-        url = f"https://api.spoonacular.com/recipes/random?number=1&apiKey={SPOONACULAR_API_KEY}"
+        global RECIPE_CACHE
+        url = f"https://api.spoonacular.com/recipes/random?number=5&apiKey={SPOONACULAR_API_KEY}"
         response = requests.get(url)
     
         if response.status_code == 200:
             data = response.json()
             if data.get("recipes"):
-                recipe = data["recipes"][0]
+                RECIPE_CACHE = []  # Clear and store new random set
     
-                # Extract full details
-                title = recipe.get("title", "Unknown Title")
-                ready_in = recipe.get("readyInMinutes", "N/A")
-                servings = recipe.get("servings", "N/A")
-                source_url = recipe.get("sourceUrl", "No URL")
-                ingredients = [ing["original"] for ing in recipe.get("extendedIngredients", [])]
-                instructions = recipe.get("instructions", "Instructions not available.")
+                for recipe in data["recipes"]:
+                    RECIPE_CACHE.append({
+                        "title": recipe.get("title", "Unknown"),
+                        "sourceUrl": recipe.get("sourceUrl", "No URL"),
+                        "readyInMinutes": recipe.get("readyInMinutes", "N/A"),
+                        "servings": recipe.get("servings", "N/A"),
+                        "ingredients": [ing["original"] for ing in recipe.get("extendedIngredients", [])],
+                        "instructions": recipe.get("instructions", "Instructions not available.")
+                    })
     
-                # Format response
-                return jsonify({
-                    "fulfillmentText": (
-                        f"🍽️ {title}\n"
-                        f"🕒 Ready in: {ready_in} minutes | Servings: {servings}\n"
-                        f"📋 Ingredients:\n" + "\n".join(ingredients) + "\n\n"
-                        f"🧑‍🍳 Instructions:\n{instructions}\n"
-                        f"🔗 Source: {source_url}"
-                    )
-                })
+                # Show list of titles to user
+                text = "\n".join([f"{idx + 1}. {r['title']}" for idx, r in enumerate(RECIPE_CACHE)])
+                return jsonify({"fulfillmentText": f"🍽️ Here are 5 random recipes:\n{text}\n\nSay something like 'Show me recipe 2' for details."})
     
-        return jsonify({"fulfillmentText": "Sorry, I couldn't fetch a random recipe right now."})
-
+        return jsonify({"fulfillmentText": "Sorry, I couldn't fetch random recipes right now."})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
