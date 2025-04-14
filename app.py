@@ -111,9 +111,22 @@ def webhook():
 
     elif intent == "ShowRecipeDetailsIntent":
         try:
-            recipe_number = int(parameters.get("recipeNumber"))
-            if 1 <= recipe_number <= len(RECIPE_CACHE):
-                recipe = RECIPE_CACHE[recipe_number - 1]
+            recipe_number = parameters.get("recipeNumber")
+            recipe_name = parameters.get("recipeName", "").strip().lower()
+    
+            recipe = None
+    
+            if recipe_number:
+                recipe_number = int(recipe_number)
+                if 1 <= recipe_number <= len(RECIPE_CACHE):
+                    recipe = RECIPE_CACHE[recipe_number - 1]
+            elif recipe_name:
+                for r in RECIPE_CACHE:
+                    if r["title"].lower() == recipe_name:
+                        recipe = r
+                        break
+    
+            if recipe:
                 ingredients = "\n".join(recipe.get("ingredients", []))
                 instructions = recipe.get("instructions", "Instructions not available.")
                 return jsonify({
@@ -127,13 +140,15 @@ def webhook():
                 })
             else:
                 return jsonify({
-                    "fulfillmentText": "Invalid recipe number. Please pick one from the list."
+                    "fulfillmentText": "I couldn't find that recipe. Please provide a number or a name from the list."
                 })
+    
         except Exception as e:
             logging.error(f"Error in ShowRecipeDetailsIntent: {e}")
             return jsonify({
                 "fulfillmentText": "Something went wrong trying to get that recipe's details."
             })
+
 
     elif intent == "RandomRecipeIntent":
         url = f"https://api.spoonacular.com/recipes/random?number=5&apiKey={SPOONACULAR_API_KEY}"
