@@ -61,7 +61,11 @@ def get_recipe_details(recipe_id):
         recipe_data = response.json()
         return {
             "title": recipe_data.get("title"),
-            "sourceUrl": recipe_data.get("sourceUrl", "No URL Available")
+            "sourceUrl": recipe_data.get("sourceUrl", "No URL Available"),
+            "ingredients": [ing["original"] for ing in recipe_data.get("extendedIngredients", [])],
+            "instructions": recipe_data.get("instructions", "Instructions not available."),
+            "readyInMinutes": recipe_data.get("readyInMinutes", "N/A"),
+            "servings": recipe_data.get("servings", "N/A")
         }
     return None
 
@@ -106,22 +110,31 @@ def webhook():
         return jsonify({"fulfillmentText": response_text})
 
     elif intent == "ShowRecipeDetailsIntent":
-        try:
-            recipe_number = int(parameters.get("recipeNumber"))
-            if 1 <= recipe_number <= len(RECIPE_CACHE):
-                recipe = RECIPE_CACHE[recipe_number - 1]
-                return jsonify({
-                    "fulfillmentText": f"Here are the details for Recipe {recipe_number}: {recipe['title']} - {recipe['sourceUrl']}"
-                })
-            else:
-                return jsonify({
-                    "fulfillmentText": "Invalid recipe number. Please pick one from the list."
-                })
-        except Exception as e:
-            logging.error(f"Error in ShowRecipeDetailsIntent: {e}")
+    try:
+        recipe_number = int(parameters.get("recipeNumber"))
+        if 1 <= recipe_number <= len(RECIPE_CACHE):
+            recipe = RECIPE_CACHE[recipe_number - 1]
+            ingredients = "\\n".join(recipe.get("ingredients", []))
+            instructions = recipe.get("instructions", "Instructions not available.")
             return jsonify({
-                "fulfillmentText": "Something went wrong trying to get that recipe's details."
+                "fulfillmentText": (
+                    f"🍽️ {recipe['title']}\\n"
+                    f"🕒 Ready in: {recipe['readyInMinutes']} minutes | Servings: {recipe['servings']}\\n"
+                    f"📋 Ingredients:\\n{ingredients}\\n"
+                    f"🧑‍🍳 Instructions:\\n{instructions}\\n"
+                    f"🔗 Source: {recipe['sourceUrl']}"
+                )
             })
+        else:
+            return jsonify({
+                "fulfillmentText": "Invalid recipe number. Please pick one from the list."
+            })
+    except Exception as e:
+        logging.error(f"Error in ShowRecipeDetailsIntent: {e}")
+        return jsonify({
+            "fulfillmentText": "Something went wrong trying to get that recipe's details."
+        })
+
 
     elif intent == "RandomRecipeIntent":
         url = f"https://api.spoonacular.com/recipes/random?number=1&apiKey={SPOONACULAR_API_KEY}"
