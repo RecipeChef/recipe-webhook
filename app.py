@@ -114,14 +114,14 @@ def webhook():
             recipe_number = int(parameters.get("recipeNumber"))
             if 1 <= recipe_number <= len(RECIPE_CACHE):
                 recipe = RECIPE_CACHE[recipe_number - 1]
-                ingredients = "\\n".join(recipe.get("ingredients", []))
+                ingredients = "\n".join(recipe.get("ingredients", []))
                 instructions = recipe.get("instructions", "Instructions not available.")
                 return jsonify({
                     "fulfillmentText": (
-                        f"🍽️ {recipe['title']}\\n"
-                        f"🕒 Ready in: {recipe['readyInMinutes']} minutes | Servings: {recipe['servings']}\\n"
-                        f"📋 Ingredients:\\n{ingredients}\\n"
-                        f"🧑‍🍳 Instructions:\\n{instructions}\\n"
+                        f"🍽️ {recipe['title']}\n"
+                        f"🕒 Ready in: {recipe['readyInMinutes']} minutes | Servings: {recipe['servings']}\n"
+                        f"📋 Ingredients:\n{ingredients}\n"
+                        f"🧑‍🍳 Instructions:\n{instructions}\n"
                         f"🔗 Source: {recipe['sourceUrl']}"
                     )
                 })
@@ -134,10 +134,9 @@ def webhook():
             return jsonify({
                 "fulfillmentText": "Something went wrong trying to get that recipe's details."
             })
-    
+
     elif intent == "RandomRecipeIntent":
         global RECIPE_CACHE
-
         url = f"https://api.spoonacular.com/recipes/random?number=5&apiKey={SPOONACULAR_API_KEY}"
         response = requests.get(url)
 
@@ -162,6 +161,10 @@ def webhook():
                 })
 
         return jsonify({"fulfillmentText": "Sorry, I couldn't fetch random recipes right now."})
+
+    return jsonify({
+        "fulfillmentText": "I'm not sure what you meant. Try saying 'upload an image' or 'give me a recipe for chicken and rice'."
+    })
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
