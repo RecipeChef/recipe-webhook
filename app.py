@@ -1,4 +1,3 @@
-
 from flask import Flask, request, jsonify
 import requests
 import base64
@@ -25,59 +24,12 @@ metadata = (("authorization", f"Key {CLARIFAI_API_KEY}"),)
 UNWANTED_WORDS = {"pasture", "micronutrient", "aliment", "comestible"}
 CONFIDENCE_THRESHOLD = 0.5
 
-# Recognize ingredients from base64 image using Clarifai
-# def recognize_ingredients_from_base64(base64_image):
-#     request = service_pb2.PostModelOutputsRequest(
-#         model_id="food-item-v1-recognition",
-#         inputs=[
-#             resources_pb2.Input(
-#                 data=resources_pb2.Data(
-#                     image=resources_pb2.Image(base64=base64.b64decode(base64_image))
-#                 )
-#             )
-#         ]
-#     )
-#     response = stub.PostModelOutputs(request, metadata=metadata)
-
-#     if response.status.code != status_code_pb2.SUCCESS:
-#         return []
-
-#     filtered_ingredients = []
-#     for concept in response.outputs[0].data.concepts:
-#         if concept.value >= CONFIDENCE_THRESHOLD and concept.name.lower() not in UNWANTED_WORDS:
-#             filtered_ingredients.append(concept.name.lower())
-
-#     return filtered_ingredients
-# 2def recognize_ingredients_from_base64(base64_image):
-#     # Fix missing padding (base64 strings must be a multiple of 4)
-#     padded_image = base64_image + "=" * ((4 - len(base64_image) % 4) % 4)
-
-#     request = service_pb2.PostModelOutputsRequest(
-#         model_id="food-item-v1-recognition",
-#         inputs=[
-#             resources_pb2.Input(
-#                 data=resources_pb2.Data(
-#                     image=resources_pb2.Image(base64=base64.b64decode(padded_image))
-#                 )
-#             )
-#         ]
-#     )
-#     response = stub.PostModelOutputs(request, metadata=metadata)
-
-#     if response.status.code != status_code_pb2.SUCCESS:
-#         return []
-
-#     filtered_ingredients = []
-#     for concept in response.outputs[0].data.concepts:
-#         if concept.value >= CONFIDENCE_THRESHOLD and concept.name.lower() not in UNWANTED_WORDS:
-#             filtered_ingredients.append(concept.name.lower())
-
-#     return filtered_ingredients
+# Global recipe cache
+RECIPE_CACHE = []
 
 def recognize_ingredients_from_base64(base64_image):
     base64_image = base64_image.strip().replace("\n", "").replace("\r", "")
     base64_image += "=" * ((4 - len(base64_image) % 4) % 4)
-
     image_bytes = base64.b64decode(base64_image)
 
     request = service_pb2.PostModelOutputsRequest(
@@ -102,8 +54,6 @@ def recognize_ingredients_from_base64(base64_image):
 
     return filtered_ingredients
 
-
-# Get full recipe details from Spoonacular
 def get_recipe_details(recipe_id):
     url = f"https://api.spoonacular.com/recipes/{recipe_id}/information?apiKey={SPOONACULAR_API_KEY}"
     response = requests.get(url)
@@ -115,7 +65,6 @@ def get_recipe_details(recipe_id):
         }
     return None
 
-# Get recipes based on a list of ingredients
 def get_recipes(ingredients):
     ingredients_query = ",".join(ingredients)
     url = f"https://api.spoonacular.com/recipes/findByIngredients?ingredients={ingredients_query}&number=5&apiKey={SPOONACULAR_API_KEY}"
@@ -125,9 +74,9 @@ def get_recipes(ingredients):
     recipes = response.json()
     return [get_recipe_details(recipe["id"]) for recipe in recipes if recipe.get("id")]
 
-# Flask route for Dialogflow webhook
 @app.route("/webhook", methods=["POST"])
 def webhook():
+    global RECIPE_CACHE
     req = request.get_json()
     logging.info(f"Incoming request: {req}")
 
@@ -149,12 +98,30 @@ def webhook():
     elif intent == "GetRecipesIntent":
         raw = parameters.get("ingredients", [])
         ingredients = [i.strip() for i in raw.split(" and ")] if isinstance(raw, str) else raw
-        recipes = get_recipes(ingredients)
-        if recipes:
-            response_text = "\n".join([f"{r['title']} - {r['sourceUrl']}" for r in recipes])
+        RECIPE_CACHE = get_recipes(ingredients)
+        if RECIPE_CACHE:
+            response_text = "\n".join([f"{idx + 1}. {r['title']} - {r['sourceUrl']}" for idx, r in enumerate(RECIPE_CACHE)])
         else:
             response_text = "Sorry, I couldn't find any recipes with those ingredients."
         return jsonify({"fulfillmentText": response_text})
+
+    elif intent == "ShowRecipeDetailsIntent":
+        try:
+            recipe_number = int(parameters.get("recipeNumber"))
+            if 1 <= recipe_number <= len(RECIPE_CACHE):
+                recipe = RECIPE_CACHE[recipe_number - 1]
+                return jsonify({
+                    "fulfillmentText": f"Here are the details for Recipe {recipe_number}: {recipe['title']} - {recipe['sourceUrl']}"
+                })
+            else:
+                return jsonify({
+                    "fulfillmentText": "Invalid recipe number. Please pick one from the list."
+                })
+        except Exception as e:
+            logging.error(f"Error in ShowRecipeDetailsIntent: {e}")
+            return jsonify({
+                "fulfillmentText": "Something went wrong trying to get that recipe's details."
+            })
 
     elif intent == "RandomRecipeIntent":
         url = f"https://api.spoonacular.com/recipes/random?number=1&apiKey={SPOONACULAR_API_KEY}"
