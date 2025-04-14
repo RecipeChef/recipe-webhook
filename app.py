@@ -135,22 +135,36 @@ def webhook():
                 "fulfillmentText": "Something went wrong trying to get that recipe's details."
             })
 
-
     elif intent == "RandomRecipeIntent":
         url = f"https://api.spoonacular.com/recipes/random?number=1&apiKey={SPOONACULAR_API_KEY}"
         response = requests.get(url)
+    
         if response.status_code == 200:
             data = response.json()
             if data.get("recipes"):
                 recipe = data["recipes"][0]
+    
+                # Extract full details
+                title = recipe.get("title", "Unknown Title")
+                ready_in = recipe.get("readyInMinutes", "N/A")
+                servings = recipe.get("servings", "N/A")
+                source_url = recipe.get("sourceUrl", "No URL")
+                ingredients = [ing["original"] for ing in recipe.get("extendedIngredients", [])]
+                instructions = recipe.get("instructions", "Instructions not available.")
+    
+                # Format response
                 return jsonify({
-                    "fulfillmentText": f"🍽️ {recipe['title']} - {recipe['sourceUrl']}"
+                    "fulfillmentText": (
+                        f"🍽️ {title}\n"
+                        f"🕒 Ready in: {ready_in} minutes | Servings: {servings}\n"
+                        f"📋 Ingredients:\n" + "\n".join(ingredients) + "\n\n"
+                        f"🧑‍🍳 Instructions:\n{instructions}\n"
+                        f"🔗 Source: {source_url}"
+                    )
                 })
+    
         return jsonify({"fulfillmentText": "Sorry, I couldn't fetch a random recipe right now."})
 
-    return jsonify({
-        "fulfillmentText": "I'm not sure what you meant. Try saying 'upload an image' or 'give me a recipe for chicken and rice'."
-    })
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
