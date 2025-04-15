@@ -7,7 +7,7 @@ from clarifai_grpc.grpc.api import service_pb2, service_pb2_grpc
 from clarifai_grpc.grpc.api import resources_pb2
 from clarifai_grpc.grpc.api.status import status_code_pb2
 
-# Logging
+# Logging for debugging on Render
 logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
@@ -16,7 +16,7 @@ app = Flask(__name__)
 CLARIFAI_API_KEY = "4a4ea9088cfa42c29e63f7b6806ad272"
 SPOONACULAR_API_KEY = "b97364cb57314c0fb18b8d7e93d7e5fc"
 
-# Clarifai config
+# Clarifai setup
 channel = ClarifaiChannel.get_grpc_channel()
 stub = service_pb2_grpc.V2Stub(channel)
 metadata = (("authorization", f"Key {CLARIFAI_API_KEY}"),)
@@ -24,11 +24,10 @@ metadata = (("authorization", f"Key {CLARIFAI_API_KEY}"),)
 UNWANTED_WORDS = {"pasture", "micronutrient", "aliment", "comestible"}
 CONFIDENCE_THRESHOLD = 0.5
 
-# Global variables
+# Global recipe cache and temp ingredient store
 RECIPE_CACHE = []
-TEMP_INGREDIENTS = []  # 🆕
+TEMP_INGREDIENTS = []  # NEW
 
-# 📸 Recognize ingredients from image
 def recognize_ingredients_from_base64(base64_image):
     base64_image = base64_image.strip().replace("\n", "").replace("\r", "")
     base64_image += "=" * ((4 - len(base64_image) % 4) % 4)
@@ -36,115 +35,177 @@ def recognize_ingredients_from_base64(base64_image):
 
     request = service_pb2.PostModelOutputsRequest(
         model_id="food-item-v1-recognition",
-        inputs=[resources_pb2.Input(
-            data=resources_pb2.Data(
-                image=resources_pb2.Image(base64=image_bytes)
+        inputs=[
+            resources_pb2.Input(
+                data=resources_pb2.Data(
+                    image=resources_pb2.Image(base64=image_bytes)
+                )
             )
-        )]
+        ]
     )
     response = stub.PostModelOutputs(request, metadata=metadata)
 
     if response.status.code != status_code_pb2.SUCCESS:
         return []
 
-    return [
-        concept.name.lower()
-        for concept in response.outputs[0].data.concepts
-        if concept.value >= CONFIDENCE_THRESHOLD and concept.name.lower() not in UNWANTED_WORDS
-    ]
+    filtered_ingredients = []
+    for concept in response.outputs[0].data.concepts:
+        if concept.value >= CONFIDENCE_THRESHOLD and concept.name.lower() not in UNWANTED_WORDS:
+            filtered_ingredients.append(concept.name.lower())
 
-# 🍲 Fetch recipe details
+    return filtered_ingredients
+
 def get_recipe_details(recipe_id):
     url = f"https://api.spoonacular.com/recipes/{recipe_id}/information?apiKey={SPOONACULAR_API_KEY}"
     response = requests.get(url)
     if response.status_code == 200:
-        data = response.json()
+        recipe_data = response.json()
         return {
-            "title": data.get("title"),
-            "sourceUrl": data.get("sourceUrl", "No URL Available"),
-            "ingredients": [i["original"] for i in data.get("extendedIngredients", [])],
-            "instructions": data.get("instructions", "Instructions not available."),
-            "readyInMinutes": data.get("readyInMinutes", "N/A"),
-            "servings": data.get("servings", "N/A")
+            "title": recipe_data.get("title"),
+            "sourceUrl": recipe_data.get("sourceUrl", "No URL Available"),
+            "ingredients": [ing["original"] for ing in recipe_data.get("extendedIngredients", [])],
+            "instructions": recipe_data.get("instructions", "Instructions not available."),
+            "readyInMinutes": recipe_data.get("readyInMinutes", "N/A"),
+            "servings": recipe_data.get("servings", "N/A")
         }
     return None
 
-# 📋 Get recipe list from ingredients
 def get_recipes(ingredients):
-    query = ",".join(ingredients)
-    url = f"https://api.spoonacular.com/recipes/findByIngredients?ingredients={query}&number=5&apiKey={SPOONACULAR_API_KEY}"
+    ingredients_query = ",".join(ingredients)
+    url = f"https://api.spoonacular.com/recipes/findByIngredients?ingredients={ingredients_query}&number=5&apiKey={SPOONACULAR_API_KEY}"
     response = requests.get(url)
     if response.status_code != 200:
         return []
-    return [get_recipe_details(r["id"]) for r in response.json() if r.get("id")]
+    recipes = response.json()
+    return [get_recipe_details(recipe["id"]) for recipe in recipes if recipe.get("id")]
 
-# 🌐 Webhook route
 @app.route("/webhook", methods=["POST"])
 def webhook():
     global RECIPE_CACHE, TEMP_INGREDIENTS
     req = request.get_json()
-    logging.info(f"Request: {req}")
+    logging.info(f"Incoming request: {req}")
 
     intent = req["queryResult"]["intent"]["displayName"]
-    params = req["queryResult"].get("parameters", {})
+    parameters = req["queryResult"].get("parameters", {})
 
-    # 1️⃣ Image uploaded
     if intent == "UploadImageIntent":
-        base64_image = params.get("imageBase64")
+        base64_image = parameters.get("imageBase64")
         TEMP_INGREDIENTS = recognize_ingredients_from_base64(base64_image)
         if TEMP_INGREDIENTS:
             return jsonify({
-                "fulfillmentText": f"I found: {', '.join(TEMP_INGREDIENTS)}. Would you like to add or remove any?"
+                "fulfillmentText": f"I found these ingredients: {', '.join(TEMP_INGREDIENTS)}. Would you like to add or remove any?"
             })
         else:
             return jsonify({
-                "fulfillmentText": "No ingredients detected. Please try another image."
+                "fulfillmentText": "I couldn't detect any ingredients from the image. Please try another photo."
             })
 
-    # 2️⃣ Confirm ingredients
     elif intent == "ConfirmIngredientsIntent":
-        add = params.get("addList", "")
-        remove = params.get("removeList", "")
+        add_list = parameters.get("addList", "")
+        remove_list = parameters.get("removeList", "")
 
-        if remove:
-            for item in remove.lower().split(","):
+        if remove_list:
+            for item in remove_list.lower().split(","):
                 item = item.strip()
                 if item in TEMP_INGREDIENTS:
                     TEMP_INGREDIENTS.remove(item)
 
-        if add:
-            for item in add.lower().split(","):
+        if add_list:
+            for item in add_list.lower().split(","):
                 item = item.strip()
                 if item and item not in TEMP_INGREDIENTS:
                     TEMP_INGREDIENTS.append(item)
 
         if TEMP_INGREDIENTS:
             return jsonify({
-                "fulfillmentText": f"Updated list: {', '.join(TEMP_INGREDIENTS)}. Should I get recipes now?"
+                "fulfillmentText": f"Updated ingredients: {', '.join(TEMP_INGREDIENTS)}. Should I search for recipes now?"
             })
         else:
             return jsonify({
-                "fulfillmentText": "All ingredients were removed. Please try again."
+                "fulfillmentText": "You have no ingredients left after the changes. Please try again."
             })
 
-    # 3️⃣ Get recipes
     elif intent == "GetRecipesIntent":
-        raw = params.get("ingredients", [])
+        raw = parameters.get("ingredients", [])
         ingredients = [i.strip() for i in raw.split(" and ")] if isinstance(raw, str) else raw
-        if not ingredients:
+        if not ingredients:  # Use TEMP_INGREDIENTS if not explicitly provided
             ingredients = TEMP_INGREDIENTS
         RECIPE_CACHE = get_recipes(ingredients)
         if RECIPE_CACHE:
-            return jsonify({
-                "fulfillmentText": "\n".join([
-                    f"{i+1}. {r['title']} - {r['sourceUrl']}" for i, r in enumerate(RECIPE_CACHE)
-                ])
-            })
-        return jsonify({"fulfillmentText": "Sorry, no recipes found."})
+            response_text = "\n".join(
+                [f"{idx + 1}. {r['title']} - {r['sourceUrl']}" for idx, r in enumerate(RECIPE_CACHE)])
+        else:
+            response_text = "Sorry, I couldn't find any recipes with those ingredients."
+        return jsonify({"fulfillmentText": response_text})
 
-    # ❓ Fallback
+    elif intent == "ShowRecipeDetailsIntent":
+        try:
+            recipe_number = parameters.get("recipeNumber")
+            recipe_name = parameters.get("recipeName", "").strip().lower()
+
+            recipe = None
+
+            if recipe_number:
+                recipe_number = int(recipe_number)
+                if 1 <= recipe_number <= len(RECIPE_CACHE):
+                    recipe = RECIPE_CACHE[recipe_number - 1]
+            elif recipe_name:
+                for r in RECIPE_CACHE:
+                    if r["title"].lower() == recipe_name:
+                        recipe = r
+                        break
+
+            if recipe:
+                ingredients = "\n".join(recipe.get("ingredients", []))
+                instructions = recipe.get("instructions", "Instructions not available.")
+                return jsonify({
+                    "fulfillmentText": (
+                        f"🍽️ {recipe['title']}\n"
+                        f"🕒 Ready in: {recipe['readyInMinutes']} minutes | Servings: {recipe['servings']}\n"
+                        f"📋 Ingredients:\n{ingredients}\n"
+                        f"🧑‍🍳 Instructions:\n{instructions}\n"
+                        f"🔗 Source: {recipe['sourceUrl']}"
+                    )
+                })
+            else:
+                return jsonify({
+                    "fulfillmentText": "I couldn't find that recipe. Please provide a number or a name from the list."
+                })
+
+        except Exception as e:
+            logging.error(f"Error in ShowRecipeDetailsIntent: {e}")
+            return jsonify({
+                "fulfillmentText": "Something went wrong trying to get that recipe's details."
+            })
+
+    elif intent == "RandomRecipeIntent":
+        url = f"https://api.spoonacular.com/recipes/random?number=5&apiKey={SPOONACULAR_API_KEY}"
+        response = requests.get(url)
+
+        if response.status_code == 200:
+            data = response.json()
+            if data.get("recipes"):
+                RECIPE_CACHE = []
+
+                for recipe in data["recipes"]:
+                    RECIPE_CACHE.append({
+                        "title": recipe.get("title", "Unknown"),
+                        "sourceUrl": recipe.get("sourceUrl", "No URL"),
+                        "readyInMinutes": recipe.get("readyInMinutes", "N/A"),
+                        "servings": recipe.get("servings", "N/A"),
+                        "ingredients": [ing["original"] for ing in recipe.get("extendedIngredients", [])],
+                        "instructions": recipe.get("instructions", "Instructions not available.")
+                    })
+
+                text = "\n".join([f"{idx + 1}. {r['title']}" for idx, r in enumerate(RECIPE_CACHE)])
+                return jsonify({
+                    "fulfillmentText": f"🍽️ Here are 5 random recipes:\n{text}\n\nSay something like 'Show me recipe 2' for details."
+                })
+
+        return jsonify({"fulfillmentText": "Sorry, I couldn't fetch random recipes right now."})
+
     return jsonify({
-        "fulfillmentText": "Sorry, I didn’t understand. Try uploading an image or asking for a recipe."
+        "fulfillmentText": "I'm not sure what you meant. Try saying 'upload an image' or 'give me a recipe for chicken and rice'."
     })
 
 if __name__ == "__main__":
