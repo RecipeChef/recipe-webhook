@@ -132,32 +132,46 @@ def webhook():
         add_list = parameters.get("addList", [])
         remove_list = parameters.get("removeList", [])
 
+        # Normalize to lists if single strings were passed
+        if isinstance(add_list, str):
+            add_list = [item.strip() for item in add_list.split(",")]
+        if isinstance(remove_list, str):
+            remove_list = [item.strip() for item in remove_list.split(",")]
+
+        # Load ingredient context (if exists)
         for context in req.get("queryResult", {}).get("outputContexts", []):
             if "ingredient-followup" in context["name"]:
                 TEMP_INGREDIENTS = context.get("parameters", {}).get("ingredients", TEMP_INGREDIENTS)
                 break
 
-        if isinstance(remove_list, str):
-            remove_list = remove_list.split(",")
-        if isinstance(add_list, str):
-            add_list = add_list.split(",")
-
+        # Remove ingredients
         for item in remove_list:
-            item = item.strip().lower()
             if item in TEMP_INGREDIENTS:
                 TEMP_INGREDIENTS.remove(item)
 
+        # Add ingredients
         for item in add_list:
-            item = item.strip().lower()
             if item and item not in TEMP_INGREDIENTS:
                 TEMP_INGREDIENTS.append(item)
 
         if TEMP_INGREDIENTS:
             return jsonify({
-                "fulfillmentText": f"Updated ingredients: {', '.join(TEMP_INGREDIENTS)}. Should I search for recipes now?"
+                "fulfillmentText": f"Updated ingredients: {', '.join(TEMP_INGREDIENTS)}. Should I search for recipes now?",
+                "outputContexts": [
+                    {
+                        "name": f"{req.get('session')}/contexts/ingredient-followup",
+                        "lifespanCount": 5,
+                        "parameters": {
+                            "ingredients": TEMP_INGREDIENTS
+                        }
+                    }
+                ]
             })
         else:
-            return jsonify({"fulfillmentText": "You have no ingredients left after the changes. Please try again."})
+            return jsonify({
+                "fulfillmentText": "You have no ingredients left after the changes. Please try again."
+            })
+
 
     elif intent == "GetRecipesIntent":
         raw = parameters.get("ingredients", [])
