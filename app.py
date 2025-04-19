@@ -44,7 +44,6 @@ def safely_resize_base64(base64_str, max_size=(300, 300)):
 
 def recognize_ingredients_from_base64(base64_image):
     base64_image = safely_resize_base64(base64_image)
-    base64_image = base64_image.strip().replace("\n", "").replace("\r", "")
     base64_image += "=" * ((4 - len(base64_image) % 4) % 4)
     image_bytes = base64.b64decode(base64_image)
     request = service_pb2.PostModelOutputsRequest(
@@ -95,32 +94,42 @@ def webhook():
             return jsonify({"fulfillmentText": "I couldn't detect any ingredients from the image."})
 
     elif intent == "ConfirmIngredientsIntent":
-        add_list = parameters.get("addList", "")
-        remove_list = parameters.get("removeList", "")
-        # Restore context if any
+        add_list = parameters.get("addList", [])
+        remove_list = parameters.get("removeList", [])
+
+        # Ensure string values are converted to lists
+        if isinstance(add_list, str):
+            add_list = [item.strip() for item in add_list.split(",")]
+        if isinstance(remove_list, str):
+            remove_list = [item.strip() for item in remove_list.split(",")]
+
+        # Restore context ingredients if available
         for ctx in req["queryResult"].get("outputContexts", []):
             if "ingredient-followup" in ctx["name"]:
                 TEMP_INGREDIENTS = ctx.get("parameters", {}).get("ingredients", TEMP_INGREDIENTS)
 
-        if remove_list:
-            for item in remove_list.lower().split(","):
-                if item.strip() in TEMP_INGREDIENTS:
-                    TEMP_INGREDIENTS.remove(item.strip())
+        # Remove items
+        for item in remove_list:
+            item = item.lower().strip()
+            if item in TEMP_INGREDIENTS:
+                TEMP_INGREDIENTS.remove(item)
 
-        if add_list:
-            for item in add_list.lower().split(","):
-                item = item.strip()
-                if item and item not in TEMP_INGREDIENTS:
-                    TEMP_INGREDIENTS.append(item)
+        # Add items
+        for item in add_list:
+            item = item.lower().strip()
+            if item and item not in TEMP_INGREDIENTS:
+                TEMP_INGREDIENTS.append(item)
 
         if TEMP_INGREDIENTS:
             return jsonify({
-                "fulfillmentText": f"Updated ingredients: {', '.join(TEMP_INGREDIENTS)}. Should I search for recipes now?"
+                "fulfillmentText": f"✅ Updated ingredients: {', '.join(TEMP_INGREDIENTS)}. Should I search for recipes now?"
             })
         else:
-            return jsonify({"fulfillmentText": "No ingredients left. Please restart with a new image."})
+            return jsonify({
+                "fulfillmentText": "❌ No ingredients left. Please try uploading a new image."
+            })
 
-    return jsonify({"fulfillmentText": "Unhandled intent."})
+    return jsonify({"fulfillmentText": "Sorry, I didn't understand what you meant."})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
