@@ -110,7 +110,9 @@ def webhook():
         base64_image = parameters.get("imageBase64")
         TEMP_INGREDIENTS = recognize_ingredients_from_base64(base64_image)
         if TEMP_INGREDIENTS:
-            session = req.get("session", "")
+            session = req["session"]
+            context_name = f"{session}/contexts/ingredient-followup"
+            logging.info(f"Returning context: {context_name}")
             return jsonify({
                 "fulfillmentText": f"I found these ingredients: {', '.join(TEMP_INGREDIENTS)}. Would you like to add or remove any?",
                 "outputContexts": [
@@ -140,7 +142,7 @@ def webhook():
 
         # Load ingredient context (if exists)
         for context in req.get("queryResult", {}).get("outputContexts", []):
-            if "ingredient-followup" in context["name"]:
+            if context["name"].endswith("/contexts/ingredient-followup"):
                 TEMP_INGREDIENTS = context.get("parameters", {}).get("ingredients", TEMP_INGREDIENTS)
                 break
 
