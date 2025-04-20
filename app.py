@@ -95,15 +95,27 @@ def get_recipes(ingredients):
     url = (
         f"https://api.spoonacular.com/recipes/complexSearch"
         f"?includeIngredients={ingredients_query}"
-        f"&number=5&ranking=2&ignorePantry=true&fillIngredients=true"
-        f"&apiKey={SPOONACULAR_API_KEY}"
+        f"&number=15&apiKey={SPOONACULAR_API_KEY}"
     )
     response = requests.get(url)
     if response.status_code != 200:
         logging.error(f"Failed to fetch recipes: {response.status_code} {response.text}")
         return []
-    recipes = response.json().get("results", [])
-    return [get_recipe_details(recipe["id"]) for recipe in recipes if recipe.get("id")]
+    raw_recipes = response.json().get("results", [])
+    valid_recipes = []
+    
+    for recipe in raw_recipes:
+        recipe_details = get_recipe_details(recipe["id"])
+        if not recipe_details:
+            continue
+
+        recipe_ings = [i.lower() for i in recipe_details.get("ingredients", [])]
+        if all(any(ingr in r_ing for r_ing in recipe_ings) for ingr in ingredients):
+            valid_recipes.append(recipe_details)
+
+        if len(valid_recipes) >= 5:
+            break
+    return valid_recipes
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
