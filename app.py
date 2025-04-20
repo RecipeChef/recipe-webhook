@@ -69,6 +69,7 @@ def recognize_ingredients_from_base64(base64_image):
 def webhook():
     global RECIPE_CACHE, TEMP_INGREDIENTS
     req = request.get_json()
+    logging.info(f"Active contexts: {[ctx['name'] for ctx in req['queryResult'].get('outputContexts', [])]}")
     logging.info(f"Incoming request: {req}")
     intent = req["queryResult"]["intent"]["displayName"]
     parameters = req["queryResult"].get("parameters", {})
