@@ -1,3 +1,4 @@
+
 from flask import Flask, request, jsonify
 import requests
 import base64
@@ -34,7 +35,6 @@ RECIPE_CACHE = []
 TEMP_INGREDIENTS = []
 LAST_RECIPE_SHOWN = None
 
-
 # Resize helper
 def safely_resize_base64(base64_str, max_size=(300, 300)):
     base64_str = base64_str.strip().replace("\n", "").replace("\r", "")
@@ -49,7 +49,6 @@ def safely_resize_base64(base64_str, max_size=(300, 300)):
     except Exception as e:
         logging.error(f"Image resizing error: {e}")
         return base64_str
-
 
 # Clarifai recognition
 def recognize_ingredients_from_base64(base64_image):
@@ -69,7 +68,6 @@ def recognize_ingredients_from_base64(base64_image):
         if concept.value >= CONFIDENCE_THRESHOLD and concept.name.lower() not in UNWANTED_WORDS
     ]
 
-
 # Spoonacular utilities
 def get_recipe_details(recipe_id):
     url = f"https://api.spoonacular.com/recipes/{recipe_id}/information?apiKey={SPOONACULAR_API_KEY}"
@@ -85,7 +83,6 @@ def get_recipe_details(recipe_id):
             "servings": data.get("servings", "N/A")
         }
     return None
-
 
 def get_recipes(ingredients):
     ingredients_query = ",".join(ingredients)
@@ -108,7 +105,6 @@ def get_recipes(ingredients):
             break
     return matched
 
-
 # 🔧 Gemini fallback function
 def handle_with_gemini_fallback(user_query):
     try:
@@ -118,11 +114,10 @@ def handle_with_gemini_fallback(user_query):
         logging.error(f"Gemini error: {e}")
         return "I couldn't answer that question right now."
 
-
 # Main webhook
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    global RECIPE_CACHE, TEMP_INGREDIENTS
+    global RECIPE_CACHE, TEMP_INGREDIENTS, LAST_RECIPE_SHOWN
     req = request.get_json()
     intent = req["queryResult"]["intent"]["displayName"]
     parameters = req["queryResult"].get("parameters", {})
@@ -213,7 +208,6 @@ def webhook():
 
     # ✅ Gemini fallback
     elif intent == "Default Fallback Intent":
-        global LAST_RECIPE_SHOWN  # Ensure proper access to the global context
         fallback_question = req["queryResult"]["queryText"]
 
         meal_context = ""
@@ -231,7 +225,6 @@ def webhook():
         try:
             logging.info("🔁 Sending fallback query to Gemini with context:")
             logging.info(meal_context)
-            # ✅ Use Gemini’s list-style input (for batching)
             response = gemini_model.generate_content([meal_context])
             return jsonify({"fulfillmentText": response.text.strip()})
         except Exception as e:
@@ -239,7 +232,6 @@ def webhook():
             return jsonify({"fulfillmentText": "I'm still learning. Let me try again or ask something else!"})
 
     return jsonify({"fulfillmentText": "Sorry, I didn't understand. Try uploading an image or asking for a recipe."})
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
