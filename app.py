@@ -32,6 +32,7 @@ UNWANTED_WORDS = {"pasture", "micronutrient", "aliment", "comestible"}
 CONFIDENCE_THRESHOLD = 0.5
 RECIPE_CACHE = []
 TEMP_INGREDIENTS = []
+LAST_RECIPE_SHOWN = None
 
 # Resize helper
 def safely_resize_base64(base64_str, max_size=(300, 300)):
@@ -162,6 +163,7 @@ def webhook():
         recipe_number = parameters.get("recipeNumber")
         recipe_name = parameters.get("recipeName", "").strip().lower()
         recipe = None
+    
         if recipe_number:
             recipe_number = int(recipe_number)
             if 1 <= recipe_number <= len(RECIPE_CACHE):
@@ -172,6 +174,7 @@ def webhook():
                     recipe = r
                     break
         if recipe:
+            LAST_RECIPE_SHOWN = recipe
             return jsonify({
                 "fulfillmentText": (
                     f"🍽️ {recipe['title']}\n"
@@ -203,9 +206,28 @@ def webhook():
 
     # ✅ Gemini fallback
     elif intent == "Default Fallback Intent":
-        user_query = req["queryResult"].get("queryText", "")
-        gemini_response = handle_with_gemini_fallback(user_query)
-        return jsonify({"fulfillmentText": gemini_response})
+        fallback_question = req["queryResult"]["queryText"]
+
+        # Try to give Gemini more context
+        meal_context = ""
+        if LAST_RECIPE_SHOWN:
+            meal_context = (
+                f"The user just asked: '{fallback_question}'\n"
+                f"The last meal was: {LAST_RECIPE_SHOWN['title']}\n"
+                f"Ingredients: {', '.join(LAST_RECIPE_SHOWN['ingredients'])}\n"
+                f"Instructions: {LAST_RECIPE_SHOWN['instructions']}\n"
+                f"Suggest a drink pairing for this meal or answer the question."
+            )
+        else:
+            meal_context = f"The user just asked: '{fallback_question}'. Try to help with nourishment advice."
+
+        try:
+            response = gemini_model.generate_content(meal_context)
+            return jsonify({"fulfillmentText": response.text.strip()})
+        except Exception as e:
+            logging.error(f"Gemini error: {e}")
+            return jsonify({"fulfillmentText": "I'm still learning. Let me try again or ask something else!"})
+
 
     return jsonify({"fulfillmentText": "Sorry, I didn't understand. Try uploading an image or asking for a recipe."})
 
