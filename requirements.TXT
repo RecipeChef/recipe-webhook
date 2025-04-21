@@ -2,3 +2,4 @@ flask
 requests
 clarifai-grpc
 Pillow
+google-generativeai
