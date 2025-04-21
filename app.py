@@ -21,7 +21,7 @@ GEMINI_API_KEY = "AIzaSyBsSAzqCApmUMVyCkxmj1VBmZOPuTYf6eM"  # ✅ Add your Gemin
 
 # Gemini Configuration ✅
 configure(api_key=GEMINI_API_KEY)
-gemini_model = GenerativeModel("gemini-pro")
+gemini_model = GenerativeModel("models/gemini-1.5-flash")
 
 # Clarifai setup
 channel = ClarifaiChannel.get_grpc_channel()
