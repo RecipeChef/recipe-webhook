@@ -8,13 +8,22 @@ from clarifai_grpc.channel.clarifai_channel import ClarifaiChannel
 from clarifai_grpc.grpc.api import service_pb2, service_pb2_grpc
 from clarifai_grpc.grpc.api import resources_pb2
 from clarifai_grpc.grpc.api.status import status_code_pb2
+from google.generativeai import configure, GenerativeModel  # ✅ Gemini import
 
+# Logging
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 
+# API Keys
 CLARIFAI_API_KEY = "4a4ea9088cfa42c29e63f7b6806ad272"
 SPOONACULAR_API_KEY = "b97364cb57314c0fb18b8d7e93d7e5fc"
+GEMINI_API_KEY = "AIzaSyBsSAzqCApmUMVyCkxmj1VBmZOPuTYf6eM"  # ✅ Add your Gemini API key here
 
+# Gemini Configuration ✅
+configure(api_key=GEMINI_API_KEY)
+gemini_model = GenerativeModel("gemini-pro")
+
+# Clarifai setup
 channel = ClarifaiChannel.get_grpc_channel()
 stub = service_pb2_grpc.V2Stub(channel)
 metadata = (("authorization", f"Key {CLARIFAI_API_KEY}"),)
@@ -24,6 +33,7 @@ CONFIDENCE_THRESHOLD = 0.5
 RECIPE_CACHE = []
 TEMP_INGREDIENTS = []
 
+# Resize helper
 def safely_resize_base64(base64_str, max_size=(300, 300)):
     base64_str = base64_str.strip().replace("\n", "").replace("\r", "")
     base64_str += "=" * ((4 - len(base64_str) % 4) % 4)
@@ -38,6 +48,7 @@ def safely_resize_base64(base64_str, max_size=(300, 300)):
         logging.error(f"Image resizing error: {e}")
         return base64_str
 
+# Clarifai recognition
 def recognize_ingredients_from_base64(base64_image):
     base64_image = safely_resize_base64(base64_image)
     base64_image += "=" * ((4 - len(base64_image) % 4) % 4)
@@ -55,6 +66,7 @@ def recognize_ingredients_from_base64(base64_image):
         if concept.value >= CONFIDENCE_THRESHOLD and concept.name.lower() not in UNWANTED_WORDS
     ]
 
+# Spoonacular utilities
 def get_recipe_details(recipe_id):
     url = f"https://api.spoonacular.com/recipes/{recipe_id}/information?apiKey={SPOONACULAR_API_KEY}"
     response = requests.get(url)
@@ -80,7 +92,6 @@ def get_recipes(ingredients):
 
     raw_recipes = response.json().get("results", [])
     matched = []
-
     for recipe in raw_recipes:
         details = get_recipe_details(recipe["id"])
         if not details:
@@ -92,6 +103,16 @@ def get_recipes(ingredients):
             break
     return matched
 
+# 🔧 Gemini fallback function
+def handle_with_gemini_fallback(user_query):
+    try:
+        response = gemini_model.generate_content(user_query)
+        return response.text.strip()
+    except Exception as e:
+        logging.error(f"Gemini error: {e}")
+        return "I couldn't answer that question right now."
+
+# Main webhook
 @app.route("/webhook", methods=["POST"])
 def webhook():
     global RECIPE_CACHE, TEMP_INGREDIENTS
@@ -112,19 +133,14 @@ def webhook():
     elif intent == "ConfirmIngredientsIntent":
         add_list = parameters.get("addList", "")
         remove_list = parameters.get("removeList", "")
-
         if remove_list:
             for item in remove_list.lower().split(","):
-                item = item.strip()
-                if item in TEMP_INGREDIENTS:
-                    TEMP_INGREDIENTS.remove(item)
-
+                if item.strip() in TEMP_INGREDIENTS:
+                    TEMP_INGREDIENTS.remove(item.strip())
         if add_list:
             for item in add_list.lower().split(","):
-                item = item.strip()
-                if item and item not in TEMP_INGREDIENTS:
-                    TEMP_INGREDIENTS.append(item)
-
+                if item.strip() and item.strip() not in TEMP_INGREDIENTS:
+                    TEMP_INGREDIENTS.append(item.strip())
         if TEMP_INGREDIENTS:
             return jsonify({"fulfillmentText": f"Updated ingredients: {', '.join(TEMP_INGREDIENTS)}. Should I find recipes?"})
         else:
@@ -184,6 +200,12 @@ def webhook():
             titles = "\n".join([f"{i+1}. {r['title']}" for i, r in enumerate(RECIPE_CACHE)])
             return jsonify({"fulfillmentText": f"🍽️ Here are 5 random recipes:\n{titles}"})
         return jsonify({"fulfillmentText": "Couldn't fetch random recipes right now."})
+
+    # ✅ Gemini fallback
+    elif intent == "Default Fallback Intent":
+        user_query = req["queryResult"].get("queryText", "")
+        gemini_response = handle_with_gemini_fallback(user_query)
+        return jsonify({"fulfillmentText": gemini_response})
 
     return jsonify({"fulfillmentText": "Sorry, I didn't understand. Try uploading an image or asking for a recipe."})
 
