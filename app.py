@@ -87,7 +87,7 @@ def get_recipe_details(recipe_id):
     return None
 
 def get_recipes(ingredients):
-    global LAST_RECIPE_SHOWN,RECIPE_CACHE
+    global LAST_RECIPE_SHOWN, RECIPE_CACHE
 
     already_suggested_titles = [r["title"] for r in RECIPE_CACHE]
     tried_combinations = set()
@@ -101,7 +101,7 @@ def get_recipes(ingredients):
             tried_combinations.add(combo_key)
 
             query = ",".join(combo)
-            url = f"https://api.spoonacular.com/recipes/complexSearch?includeIngredients={query}&number=25&apiKey={SPOONACULAR_API_KEY}"
+            url = f"https://api.spoonacular.com/recipes/complexSearch?includeIngredients={query}&number=20&apiKey={SPOONACULAR_API_KEY}"
             response = requests.get(url)
 
             if response.status_code != 200:
@@ -110,23 +110,25 @@ def get_recipes(ingredients):
 
             raw_recipes = response.json().get("results", [])
             for recipe in raw_recipes:
+                if recipe["title"] in already_suggested_titles:
+                    continue
+
                 details = get_recipe_details(recipe["id"])
                 if not details:
                     continue
 
-                title = details["title"]
-                if title in already_suggested_titles:
-                    continue
-
                 recipe_ingredients = [ing.lower() for ing in details.get("ingredients", [])]
-                if all(any(i in ing for ing in recipe_ingredients) for i in combo):
+
+                # ✅ Doğrudan içerme kontrolü (daha net eşleşme)
+                if all(ing in recipe_ingredients for ing in combo):
                     matched_recipes.append(details)
-                    already_suggested_titles.append(title)
+                    already_suggested_titles.append(recipe["title"])
 
                 if len(matched_recipes) >= 5:
                     return matched_recipes
 
     return matched_recipes
+
 
 
 
