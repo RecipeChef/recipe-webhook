@@ -88,7 +88,7 @@ def get_recipe_details(recipe_id):
 def get_recipes(ingredients):
     global LAST_RECIPE_SHOWN,RECIPE_CACHE
 
-    already_suggested_titles = [r["titles"] for r in RECIPE_CACHE]
+    already_suggested_titles = [r["title"] for r in RECIPE_CACHE]
     tried_combinations = set()
     matched_recipes = []
 
