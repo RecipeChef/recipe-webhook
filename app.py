@@ -125,7 +125,7 @@ def get_recipes(ingredients):
                 if len(matched_recipes) >= 5:
                     return matched_recipes
 
-        return matched_recipes
+    return matched_recipes
 
 
 
@@ -175,6 +175,7 @@ def webhook():
 
 
     elif intent == "GetRecipesIntent":
+        global RECIPE_OFFSET
         RECIPE_OFFSET = 0
         raw = parameters.get("ingredients", [])
         ingredients = [i.strip().lower() for i in raw.split(" and ")] if isinstance(raw, str) else raw
