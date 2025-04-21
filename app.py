@@ -226,6 +226,9 @@ def webhook():
         return jsonify({"fulfillmentText": "Recipe not found. Try a different number or name."})
 
     elif intent == "ShowMoreRecipesIntent":
+        global RECIPE_OFFSET
+        print("➡️ RECIPE_OFFSET:", RECIPE_OFFSET)
+        print("📦 RECIPE_CACHE len:", len(RECIPE_CACHE))
         if RECIPE_OFFSET >= len(RECIPE_CACHE):
             return jsonify({"fulfillmentText": "No more recipes to show."})
 
