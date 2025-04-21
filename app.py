@@ -34,6 +34,7 @@ RECIPE_CACHE = []
 TEMP_INGREDIENTS = []
 LAST_RECIPE_SHOWN = None
 
+
 # Resize helper
 def safely_resize_base64(base64_str, max_size=(300, 300)):
     base64_str = base64_str.strip().replace("\n", "").replace("\r", "")
@@ -48,6 +49,7 @@ def safely_resize_base64(base64_str, max_size=(300, 300)):
     except Exception as e:
         logging.error(f"Image resizing error: {e}")
         return base64_str
+
 
 # Clarifai recognition
 def recognize_ingredients_from_base64(base64_image):
@@ -67,6 +69,7 @@ def recognize_ingredients_from_base64(base64_image):
         if concept.value >= CONFIDENCE_THRESHOLD and concept.name.lower() not in UNWANTED_WORDS
     ]
 
+
 # Spoonacular utilities
 def get_recipe_details(recipe_id):
     url = f"https://api.spoonacular.com/recipes/{recipe_id}/information?apiKey={SPOONACULAR_API_KEY}"
@@ -82,6 +85,7 @@ def get_recipe_details(recipe_id):
             "servings": data.get("servings", "N/A")
         }
     return None
+
 
 def get_recipes(ingredients):
     ingredients_query = ",".join(ingredients)
@@ -104,6 +108,7 @@ def get_recipes(ingredients):
             break
     return matched
 
+
 # 🔧 Gemini fallback function
 def handle_with_gemini_fallback(user_query):
     try:
@@ -112,6 +117,7 @@ def handle_with_gemini_fallback(user_query):
     except Exception as e:
         logging.error(f"Gemini error: {e}")
         return "I couldn't answer that question right now."
+
 
 # Main webhook
 @app.route("/webhook", methods=["POST"])
@@ -143,7 +149,8 @@ def webhook():
                 if item.strip() and item.strip() not in TEMP_INGREDIENTS:
                     TEMP_INGREDIENTS.append(item.strip())
         if TEMP_INGREDIENTS:
-            return jsonify({"fulfillmentText": f"Updated ingredients: {', '.join(TEMP_INGREDIENTS)}. Should I find recipes?"})
+            return jsonify(
+                {"fulfillmentText": f"Updated ingredients: {', '.join(TEMP_INGREDIENTS)}. Should I find recipes?"})
         else:
             return jsonify({"fulfillmentText": "No ingredients left after changes."})
 
@@ -154,7 +161,7 @@ def webhook():
             ingredients = TEMP_INGREDIENTS
         RECIPE_CACHE = get_recipes(ingredients)
         if RECIPE_CACHE:
-            response_text = "\n".join([f"{i+1}. {r['title']} - {r['sourceUrl']}" for i, r in enumerate(RECIPE_CACHE)])
+            response_text = "\n".join([f"{i + 1}. {r['title']} - {r['sourceUrl']}" for i, r in enumerate(RECIPE_CACHE)])
         else:
             response_text = "Sorry, no recipes found with all those ingredients."
         return jsonify({"fulfillmentText": response_text})
@@ -163,7 +170,7 @@ def webhook():
         recipe_number = parameters.get("recipeNumber")
         recipe_name = parameters.get("recipeName", "").strip().lower()
         recipe = None
-    
+
         if recipe_number:
             recipe_number = int(recipe_number)
             if 1 <= recipe_number <= len(RECIPE_CACHE):
@@ -177,10 +184,10 @@ def webhook():
             LAST_RECIPE_SHOWN = recipe
             return jsonify({
                 "fulfillmentText": (
-                    f"🍽️ {recipe['title']}\n"
-                    f"🕒 Ready in: {recipe['readyInMinutes']} mins | Servings: {recipe['servings']}\n"
-                    f"📋 Ingredients:\n" + "\n".join(recipe['ingredients']) +
-                    f"\n🧑‍🍳 Instructions:\n{recipe['instructions']}\n🔗 {recipe['sourceUrl']}"
+                        f"🍽️ {recipe['title']}\n"
+                        f"🕒 Ready in: {recipe['readyInMinutes']} mins | Servings: {recipe['servings']}\n"
+                        f"📋 Ingredients:\n" + "\n".join(recipe['ingredients']) +
+                        f"\n🧑‍🍳 Instructions:\n{recipe['instructions']}\n🔗 {recipe['sourceUrl']}"
                 )
             })
         return jsonify({"fulfillmentText": "Recipe not found. Try a different number or name."})
@@ -200,15 +207,15 @@ def webhook():
                     "ingredients": [i["original"] for i in r.get("extendedIngredients", [])],
                     "instructions": r.get("instructions", "Instructions not available.")
                 })
-            titles = "\n".join([f"{i+1}. {r['title']}" for i, r in enumerate(RECIPE_CACHE)])
+            titles = "\n".join([f"{i + 1}. {r['title']}" for i, r in enumerate(RECIPE_CACHE)])
             return jsonify({"fulfillmentText": f"🍽️ Here are 5 random recipes:\n{titles}"})
         return jsonify({"fulfillmentText": "Couldn't fetch random recipes right now."})
 
     # ✅ Gemini fallback
     elif intent == "Default Fallback Intent":
+        global LAST_RECIPE_SHOWN  # Ensure proper access to the global context
         fallback_question = req["queryResult"]["queryText"]
 
-        # Try to give Gemini more context
         meal_context = ""
         if LAST_RECIPE_SHOWN:
             meal_context = (
@@ -222,14 +229,17 @@ def webhook():
             meal_context = f"The user just asked: '{fallback_question}'. Try to help with nourishment advice."
 
         try:
-            response = gemini_model.generate_content(meal_context)
+            logging.info("🔁 Sending fallback query to Gemini with context:")
+            logging.info(meal_context)
+            # ✅ Use Gemini’s list-style input (for batching)
+            response = gemini_model.generate_content([meal_context])
             return jsonify({"fulfillmentText": response.text.strip()})
         except Exception as e:
             logging.error(f"Gemini error: {e}")
             return jsonify({"fulfillmentText": "I'm still learning. Let me try again or ask something else!"})
 
-
     return jsonify({"fulfillmentText": "Sorry, I didn't understand. Try uploading an image or asking for a recipe."})
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
