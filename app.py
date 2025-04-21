@@ -9,6 +9,7 @@ from clarifai_grpc.grpc.api import service_pb2, service_pb2_grpc
 from clarifai_grpc.grpc.api import resources_pb2
 from clarifai_grpc.grpc.api.status import status_code_pb2
 from google.generativeai import configure, GenerativeModel  # ✅ Gemini import
+import itertools
 
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -33,6 +34,7 @@ CONFIDENCE_THRESHOLD = 0.5
 RECIPE_CACHE = []
 TEMP_INGREDIENTS = []
 LAST_RECIPE_SHOWN = None
+RECIPE_OFFSET = 0
 
 # Resize helper
 def safely_resize_base64(base64_str, max_size=(300, 300)):
@@ -84,25 +86,48 @@ def get_recipe_details(recipe_id):
     return None
 
 def get_recipes(ingredients):
-    ingredients_query = ",".join(ingredients)
-    url = f"https://api.spoonacular.com/recipes/complexSearch?includeIngredients={ingredients_query}&number=25&apiKey={SPOONACULAR_API_KEY}"
-    response = requests.get(url)
-    if response.status_code != 200:
-        logging.error(f"Spoonacular error: {response.status_code} - {response.text}")
-        return []
+    global LAST_RECIPE_SHOWN,RECIPE_CACHE
 
-    raw_recipes = response.json().get("results", [])
-    matched = []
-    for recipe in raw_recipes:
-        details = get_recipe_details(recipe["id"])
-        if not details:
-            continue
-        lower_ings = [ing.lower() for ing in details.get("ingredients", [])]
-        if all(any(i in ing for ing in lower_ings) for i in ingredients):
-            matched.append(details)
-        if len(matched) >= 5:
-            break
-    return matched
+    already_suggested_titles = [r["titles"] for r in RECIPE_CACHE]
+    tried_combinations = set()
+    matched_recipes = []
+
+    for r in range(len(ingredients), 0, -1):
+        for combo in itertools.combinations(ingredients, r):
+            combo_key = tuple(sorted(combo))
+            if combo_key in tried_combinations:
+                continue
+            tried_combinations.add(combo_key)
+
+            query = ",".join(combo)
+            url = f"https://api.spoonacular.com/recipes/complexSearch?includeIngredients={query}&number=25&apiKey={SPOONACULAR_API_KEY}"
+            response = requests.get(url)
+
+            if response.status_code != 200:
+                logging.error(f"Spoonacular error: {response.status_code} - {response.text}")
+                continue
+
+            raw_recipes = response.json().get("results", [])
+            for recipe in raw_recipes:
+                details = get_recipe_details(recipe["id"])
+                if not details:
+                    continue
+
+                title = details["title"]
+                if title in already_suggested_titles:
+                    continue
+
+                recipe_ingredients = [ing.lower() for ing in details.get("ingredients", [])]
+                if all(any(i in ing for ing in recipe_ingredients) for i in combo):
+                    matched_recipes.append(details)
+                    already_suggested_titles.append(title)
+
+                if len(matched_recipes) >= 5:
+                    return matched_recipes
+
+        return matched_recipes
+
+
 
 # 🔧 Gemini fallback function
 def handle_with_gemini_fallback(user_query):
@@ -148,16 +173,28 @@ def webhook():
         else:
             return jsonify({"fulfillmentText": "No ingredients left after changes."})
 
+
     elif intent == "GetRecipesIntent":
+        RECIPE_OFFSET = 0
         raw = parameters.get("ingredients", [])
         ingredients = [i.strip().lower() for i in raw.split(" and ")] if isinstance(raw, str) else raw
+
         if not ingredients:
             ingredients = TEMP_INGREDIENTS
+
         RECIPE_CACHE = get_recipes(ingredients)
+
         if RECIPE_CACHE:
-            response_text = "\n".join([f"{i + 1}. {r['title']} - {r['sourceUrl']}" for i, r in enumerate(RECIPE_CACHE)])
+            shown = RECIPE_CACHE[:5]
+            RECIPE_OFFSET = 5
+            response_text = "\n".join([f"{i + 1}. {r['title']} - {r['sourceUrl']}" for i, r in enumerate(shown)])
+
+            if len(RECIPE_CACHE) > RECIPE_OFFSET:
+                response_text += "\nWould you like to see more recipes?"
+
         else:
-            response_text = "Sorry, no recipes found with all those ingredients."
+            response_text = "Sorry, no recipes found with the given ingredients."
+
         return jsonify({"fulfillmentText": response_text})
 
     elif intent == "ShowRecipeDetailsIntent":
@@ -185,6 +222,21 @@ def webhook():
                 )
             })
         return jsonify({"fulfillmentText": "Recipe not found. Try a different number or name."})
+
+    elif intent == "ShowMoreRecipesIntent":
+        if RECIPE_OFFSET >= len(RECIPE_CACHE):
+            return jsonify({"fulfillmentText": "No more recipes to show."})
+
+        shown = RECIPE_CACHE[RECIPE_OFFSET:RECIPE_OFFSET + 5]
+        response_text = "\n".join(
+            [f"{i + RECIPE_OFFSET + 1}. {r['title']} - {r['sourceUrl']}" for i, r in enumerate(shown)])
+        RECIPE_OFFSET += len(shown)
+
+        if RECIPE_OFFSET < len(RECIPE_CACHE):
+            response_text += "\nWould you like to see more?"
+
+        return jsonify({"fulfillmentText": response_text})
+
 
     elif intent == "RandomRecipeIntent":
         url = f"https://api.spoonacular.com/recipes/random?number=5&apiKey={SPOONACULAR_API_KEY}"
