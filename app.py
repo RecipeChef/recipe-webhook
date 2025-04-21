@@ -141,7 +141,7 @@ def handle_with_gemini_fallback(user_query):
 # Main webhook
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    global RECIPE_CACHE, TEMP_INGREDIENTS, LAST_RECIPE_SHOWN
+    global RECIPE_CACHE, TEMP_INGREDIENTS, LAST_RECIPE_SHOWN,RECIPE_OFFSET
     req = request.get_json()
     intent = req["queryResult"]["intent"]["displayName"]
     parameters = req["queryResult"].get("parameters", {})
@@ -225,7 +225,6 @@ def webhook():
         return jsonify({"fulfillmentText": "Recipe not found. Try a different number or name."})
 
     elif intent == "ShowMoreRecipesIntent":
-        global RECIPE_OFFSET
         if RECIPE_OFFSET >= len(RECIPE_CACHE):
             return jsonify({"fulfillmentText": "No more recipes to show."})
 
