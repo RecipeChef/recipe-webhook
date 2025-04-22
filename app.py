@@ -125,8 +125,9 @@ def webhook():
     parameters = req["queryResult"].get("parameters", {})
 
     if intent == "UploadImageIntent":
-        base64_image = parameters.get("imageBase64")
-        TEMP_INGREDIENTS = recognize_ingredients_from_base64(base64_image)
+        # base64_image = parameters.get("imageBase64")
+        # TEMP_INGREDIENTS = recognize_ingredients_from_base64(base64_image)
+        TEMP_INGREDIENTS = ["eggplant", "tomato", "onion"]
         if TEMP_INGREDIENTS:
             return jsonify({
                 "fulfillmentText": f"I found these ingredients: {', '.join(TEMP_INGREDIENTS)}. Would you like to add or remove any?"
