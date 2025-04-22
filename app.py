@@ -35,8 +35,6 @@ RECIPE_HISTORY = set()
 TEMP_INGREDIENTS = []
 LAST_RECIPE_SHOWN = None
 
-
-# Resize helper
 def safely_resize_base64(base64_str, max_size=(300, 300)):
     base64_str = base64_str.strip().replace("\n", "").replace("\r", "")
     base64_str += "=" * ((4 - len(base64_str) % 4) % 4)
@@ -51,8 +49,6 @@ def safely_resize_base64(base64_str, max_size=(300, 300)):
         logging.error(f"Image resizing error: {e}")
         return base64_str
 
-
-# Clarifai recognition
 def recognize_ingredients_from_base64(base64_image):
     base64_image = safely_resize_base64(base64_image)
     base64_image += "=" * ((4 - len(base64_image) % 4) % 4)
@@ -70,8 +66,6 @@ def recognize_ingredients_from_base64(base64_image):
         if concept.value >= CONFIDENCE_THRESHOLD and concept.name.lower() not in UNWANTED_WORDS
     ]
 
-
-# Spoonacular utilities
 def get_recipe_details(recipe_id):
     url = f"https://api.spoonacular.com/recipes/{recipe_id}/information?apiKey={SPOONACULAR_API_KEY}"
     response = requests.get(url)
@@ -87,7 +81,6 @@ def get_recipe_details(recipe_id):
             "servings": data.get("servings", "N/A")
         }
     return None
-
 
 def get_recipes(ingredients):
     ingredients_query = ",".join(ingredients)
@@ -113,8 +106,6 @@ def get_recipes(ingredients):
             break
     return matched
 
-
-# 🔧 Gemini fallback function
 def handle_with_gemini_fallback(user_query):
     try:
         response = gemini_model.generate_content(user_query)
@@ -162,16 +153,18 @@ def webhook():
     if intent == "GetRecipesIntent":
         raw = parameters.get("ingredients", [])
 
-        if isinstance(raw, list) and len(raw) == 1 and "," in raw[0]:
-            ingredients = [i.strip().lower() for i in raw[0].split(",")]
+        # ✅ FIX: Handle both str and list with potential comma-separated values
+        ingredients = []
+        if isinstance(raw, list):
+            for item in raw:
+                ingredients.extend([i.strip().lower() for i in item.split(",")])
         elif isinstance(raw, str):
             ingredients = [i.strip().lower() for i in raw.split(",")]
-        else:
-            ingredients = [i.strip().lower() for i in raw]
+
         if not ingredients:
             ingredients = TEMP_INGREDIENTS
-        RECIPE_CACHE = []
 
+        RECIPE_CACHE = []
         while ingredients:
             logging.info(f"🔍 Trying with ingredients: {ingredients}")
             results = get_recipes(ingredients)
@@ -179,6 +172,7 @@ def webhook():
                 RECIPE_CACHE = results
                 break
             ingredients.pop()
+
         if RECIPE_CACHE:
             response_text = "\n".join([f"{i + 1}. {r['title']} - {r['sourceUrl']}" for i, r in enumerate(RECIPE_CACHE)])
         else:
