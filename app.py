@@ -137,31 +137,60 @@ def webhook():
 
 
     elif intent == "ConfirmIngredientsIntent":
-        add_list = parameters.get("addList", "")
-        remove_list = parameters.get("removeList", "")
+        add_list = parameters.get("addList", [])
+        remove_list = parameters.get("removeList", [])
 
-        # ✅ Normalize remove_list
-        if isinstance(remove_list, list):
-            items_to_remove = remove_list
-        else:
-            items_to_remove = [i.strip().lower() for i in remove_list.split(",")]
-        for item in items_to_remove:
+        # Normalize: Make sure we always deal with lists of strings
+        if isinstance(remove_list, str):
+            remove_list = [item.strip() for item in remove_list.split(",")]
+        if isinstance(add_list, str):
+            add_list = [item.strip() for item in add_list.split(",")]
+
+        # Apply removals
+        for item in remove_list:
             if item in TEMP_INGREDIENTS:
                 TEMP_INGREDIENTS.remove(item)
 
-        # ✅ Normalize add_list
-        if isinstance(add_list, list):
-            items_to_add = add_list
-        else:
-            items_to_add = [i.strip().lower() for i in add_list.split(",")]
-        for item in items_to_add:
+        # Apply additions
+        for item in add_list:
             if item and item not in TEMP_INGREDIENTS:
                 TEMP_INGREDIENTS.append(item)
-        if TEMP_INGREDIENTS:
-            return jsonify(
-                {"fulfillmentText": f"Updated ingredients: {', '.join(TEMP_INGREDIENTS)}. Should I find recipes?"})
-        else:
-            return jsonify({"fulfillmentText": "No ingredients left after changes."})
+
+        # Return recipes directly via a follow-up event
+        return jsonify({
+            "followupEventInput": {
+                "name": "GetRecipesEvent",
+                "languageCode": "en",
+                "parameters": {
+                    "ingredients": TEMP_INGREDIENTS
+                }
+            }
+        })
+        # add_list = parameters.get("addList", "")
+        # remove_list = parameters.get("removeList", "")
+
+        # # ✅ Normalize remove_list
+        # if isinstance(remove_list, list):
+        #     items_to_remove = remove_list
+        # else:
+        #     items_to_remove = [i.strip().lower() for i in remove_list.split(",")]
+        # for item in items_to_remove:
+        #     if item in TEMP_INGREDIENTS:
+        #         TEMP_INGREDIENTS.remove(item)
+
+        # # ✅ Normalize add_list
+        # if isinstance(add_list, list):
+        #     items_to_add = add_list
+        # else:
+        #     items_to_add = [i.strip().lower() for i in add_list.split(",")]
+        # for item in items_to_add:
+        #     if item and item not in TEMP_INGREDIENTS:
+        #         TEMP_INGREDIENTS.append(item)
+        # if TEMP_INGREDIENTS:
+        #     return jsonify(
+        #         {"fulfillmentText": f"Updated ingredients: {', '.join(TEMP_INGREDIENTS)}. Should I find recipes?"})
+        # else:
+        #     return jsonify({"fulfillmentText": "No ingredients left after changes."})
 
     if intent == "GetRecipesIntent":
         raw = parameters.get("ingredients", [])
