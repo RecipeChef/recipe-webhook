@@ -8,7 +8,7 @@ from clarifai_grpc.channel.clarifai_channel import ClarifaiChannel
 from clarifai_grpc.grpc.api import service_pb2, service_pb2_grpc
 from clarifai_grpc.grpc.api import resources_pb2
 from clarifai_grpc.grpc.api.status import status_code_pb2
-from google.generativeai import configure, GenerativeModel  # ✅ Gemini import
+from google.generativeai import configure, GenerativeModel
 
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -17,9 +17,9 @@ app = Flask(__name__)
 # API Keys
 CLARIFAI_API_KEY = "4a4ea9088cfa42c29e63f7b6806ad272"
 SPOONACULAR_API_KEY = "b97364cb57314c0fb18b8d7e93d7e5fc"
-GEMINI_API_KEY = "AIzaSyBsSAzqCApmUMVyCkxmj1VBmZOPuTYf6eM"  # ✅ Add your Gemini API key here
+GEMINI_API_KEY = "AIzaSyBsSAzqCApmUMVyCkxmj1VBmZOPuTYf6eM"
 
-# Gemini Configuration ✅
+# Gemini Configuration
 configure(api_key=GEMINI_API_KEY)
 gemini_model = GenerativeModel("models/gemini-1.5-flash")
 
@@ -31,8 +31,10 @@ metadata = (("authorization", f"Key {CLARIFAI_API_KEY}"),)
 UNWANTED_WORDS = {"pasture", "micronutrient", "aliment", "comestible"}
 CONFIDENCE_THRESHOLD = 0.5
 RECIPE_CACHE = []
+RECIPE_HISTORY = set()
 TEMP_INGREDIENTS = []
 LAST_RECIPE_SHOWN = None
+
 
 # Resize helper
 def safely_resize_base64(base64_str, max_size=(300, 300)):
@@ -48,6 +50,7 @@ def safely_resize_base64(base64_str, max_size=(300, 300)):
     except Exception as e:
         logging.error(f"Image resizing error: {e}")
         return base64_str
+
 
 # Clarifai recognition
 def recognize_ingredients_from_base64(base64_image):
@@ -67,6 +70,7 @@ def recognize_ingredients_from_base64(base64_image):
         if concept.value >= CONFIDENCE_THRESHOLD and concept.name.lower() not in UNWANTED_WORDS
     ]
 
+
 # Spoonacular utilities
 def get_recipe_details(recipe_id):
     url = f"https://api.spoonacular.com/recipes/{recipe_id}/information?apiKey={SPOONACULAR_API_KEY}"
@@ -74,6 +78,7 @@ def get_recipe_details(recipe_id):
     if response.status_code == 200:
         data = response.json()
         return {
+            "id": recipe_id,
             "title": data.get("title"),
             "sourceUrl": data.get("sourceUrl", ""),
             "ingredients": [i["original"].lower() for i in data.get("extendedIngredients", [])],
@@ -82,6 +87,7 @@ def get_recipe_details(recipe_id):
             "servings": data.get("servings", "N/A")
         }
     return None
+
 
 def get_recipes(ingredients):
     ingredients_query = ",".join(ingredients)
@@ -94,15 +100,19 @@ def get_recipes(ingredients):
     raw_recipes = response.json().get("results", [])
     matched = []
     for recipe in raw_recipes:
+        if recipe["id"] in RECIPE_HISTORY:
+            continue
         details = get_recipe_details(recipe["id"])
         if not details:
             continue
         lower_ings = [ing.lower() for ing in details.get("ingredients", [])]
         if all(any(i in ing for ing in lower_ings) for i in ingredients):
             matched.append(details)
+            RECIPE_HISTORY.add(recipe["id"])
         if len(matched) >= 5:
             break
     return matched
+
 
 # 🔧 Gemini fallback function
 def handle_with_gemini_fallback(user_query):
@@ -112,6 +122,7 @@ def handle_with_gemini_fallback(user_query):
     except Exception as e:
         logging.error(f"Gemini error: {e}")
         return "I couldn't answer that question right now."
+
 
 # Main webhook
 @app.route("/webhook", methods=["POST"])
@@ -148,10 +159,9 @@ def webhook():
         else:
             return jsonify({"fulfillmentText": "No ingredients left after changes."})
 
-    elif intent == "GetRecipesIntent":
+    if intent == "GetRecipesIntent":
         raw = parameters.get("ingredients", [])
-        
-        # Normalize the ingredients into a clean list
+
         if isinstance(raw, list) and len(raw) == 1 and "," in raw[0]:
             ingredients = [i.strip().lower() for i in raw[0].split(",")]
         elif isinstance(raw, str):
@@ -160,13 +170,19 @@ def webhook():
             ingredients = [i.strip().lower() for i in raw]
         if not ingredients:
             ingredients = TEMP_INGREDIENTS
+        RECIPE_CACHE = []
 
-        RECIPE_CACHE = get_recipes(ingredients)
-
+        while ingredients:
+            logging.info(f"🔍 Trying with ingredients: {ingredients}")
+            results = get_recipes(ingredients)
+            if results:
+                RECIPE_CACHE = results
+                break
+            ingredients.pop()
         if RECIPE_CACHE:
             response_text = "\n".join([f"{i + 1}. {r['title']} - {r['sourceUrl']}" for i, r in enumerate(RECIPE_CACHE)])
         else:
-            response_text = "Sorry, no recipes found with all those ingredients."
+            response_text = "Sorry, no recipes found with the available ingredients."
         return jsonify({"fulfillmentText": response_text})
 
     elif intent == "ShowRecipeDetailsIntent":
@@ -240,6 +256,7 @@ def webhook():
             return jsonify({"fulfillmentText": "I'm still learning. Let me try again or ask something else!"})
 
     return jsonify({"fulfillmentText": "Sorry, I didn't understand. Try uploading an image or asking for a recipe."})
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
