@@ -150,10 +150,19 @@ def webhook():
 
     elif intent == "GetRecipesIntent":
         raw = parameters.get("ingredients", [])
-        ingredients = [i.strip().lower() for i in raw.split(" and ")] if isinstance(raw, str) else raw
+        
+        # Normalize the ingredients into a clean list
+        if isinstance(raw, list) and len(raw) == 1 and "," in raw[0]:
+            ingredients = [i.strip().lower() for i in raw[0].split(",")]
+        elif isinstance(raw, str):
+            ingredients = [i.strip().lower() for i in raw.split(",")]
+        else:
+            ingredients = [i.strip().lower() for i in raw]
         if not ingredients:
             ingredients = TEMP_INGREDIENTS
+
         RECIPE_CACHE = get_recipes(ingredients)
+
         if RECIPE_CACHE:
             response_text = "\n".join([f"{i + 1}. {r['title']} - {r['sourceUrl']}" for i, r in enumerate(RECIPE_CACHE)])
         else:
