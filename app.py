@@ -125,9 +125,8 @@ def webhook():
     parameters = req["queryResult"].get("parameters", {})
 
     if intent == "UploadImageIntent":
-        # base64_image = parameters.get("imageBase64")
-        # TEMP_INGREDIENTS = recognize_ingredients_from_base64(base64_image)
-        TEMP_INGREDIENTS = ["eggplant", "tomato", "onion"]
+        base64_image = parameters.get("imageBase64")
+        TEMP_INGREDIENTS = recognize_ingredients_from_base64(base64_image)
         if TEMP_INGREDIENTS:
             return jsonify({
                 "fulfillmentText": f"I found these ingredients: {', '.join(TEMP_INGREDIENTS)}. Would you like to add or remove any?"
@@ -135,62 +134,22 @@ def webhook():
         else:
             return jsonify({"fulfillmentText": "No ingredients found in the image."})
 
-
     elif intent == "ConfirmIngredientsIntent":
-        add_list = parameters.get("addList", [])
-        remove_list = parameters.get("removeList", [])
-
-        # Normalize: Make sure we always deal with lists of strings
-        if isinstance(remove_list, str):
-            remove_list = [item.strip() for item in remove_list.split(",")]
-        if isinstance(add_list, str):
-            add_list = [item.strip() for item in add_list.split(",")]
-
-        # Apply removals
-        for item in remove_list:
-            if item in TEMP_INGREDIENTS:
-                TEMP_INGREDIENTS.remove(item)
-
-        # Apply additions
-        for item in add_list:
-            if item and item not in TEMP_INGREDIENTS:
-                TEMP_INGREDIENTS.append(item)
-
-        # Return recipes directly via a follow-up event
-        return jsonify({
-            "followupEventInput": {
-                "name": "GetRecipesEvent",
-                "languageCode": "en",
-                "parameters": {
-                    "ingredients": TEMP_INGREDIENTS
-                }
-            }
-        })
-        # add_list = parameters.get("addList", "")
-        # remove_list = parameters.get("removeList", "")
-
-        # # ✅ Normalize remove_list
-        # if isinstance(remove_list, list):
-        #     items_to_remove = remove_list
-        # else:
-        #     items_to_remove = [i.strip().lower() for i in remove_list.split(",")]
-        # for item in items_to_remove:
-        #     if item in TEMP_INGREDIENTS:
-        #         TEMP_INGREDIENTS.remove(item)
-
-        # # ✅ Normalize add_list
-        # if isinstance(add_list, list):
-        #     items_to_add = add_list
-        # else:
-        #     items_to_add = [i.strip().lower() for i in add_list.split(",")]
-        # for item in items_to_add:
-        #     if item and item not in TEMP_INGREDIENTS:
-        #         TEMP_INGREDIENTS.append(item)
-        # if TEMP_INGREDIENTS:
-        #     return jsonify(
-        #         {"fulfillmentText": f"Updated ingredients: {', '.join(TEMP_INGREDIENTS)}. Should I find recipes?"})
-        # else:
-        #     return jsonify({"fulfillmentText": "No ingredients left after changes."})
+        add_list = parameters.get("addList", "")
+        remove_list = parameters.get("removeList", "")
+        if remove_list:
+            for item in remove_list.lower().split(","):
+                if item.strip() in TEMP_INGREDIENTS:
+                    TEMP_INGREDIENTS.remove(item.strip())
+        if add_list:
+            for item in add_list.lower().split(","):
+                if item.strip() and item.strip() not in TEMP_INGREDIENTS:
+                    TEMP_INGREDIENTS.append(item.strip())
+        if TEMP_INGREDIENTS:
+            return jsonify(
+                {"fulfillmentText": f"Updated ingredients: {', '.join(TEMP_INGREDIENTS)}. Should I find recipes?"})
+        else:
+            return jsonify({"fulfillmentText": "No ingredients left after changes."})
 
     if intent == "GetRecipesIntent":
         raw = parameters.get("ingredients", [])
