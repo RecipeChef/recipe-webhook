@@ -61,11 +61,12 @@ def recognize_ingredients_from_base64(base64_image):
     response = stub.PostModelOutputs(request, metadata=metadata)
     if response.status.code != status_code_pb2.SUCCESS:
         return []
-    return [
-        concept.name.lower()
-        for concept in response.outputs[0].data.concepts
-        if concept.value >= CONFIDENCE_THRESHOLD and concept.name.lower() not in UNWANTED_WORDS
-    ]
+    result = []
+    for concept in response.outputs[0].data.concepts:
+        if concept.value >= CONFIDENCE_THRESHOLD and concept.name.lower() not in UNWANTED_WORDS:
+            logging.info(f"Detected: {concept.name} (confidence: {concept.value})")
+            result.append(concept.name.lower())
+    return result
 
 def get_recipe_details(recipe_id):
     url = f"https://api.spoonacular.com/recipes/{recipe_id}/information?apiKey={SPOONACULAR_API_KEY}"
@@ -76,7 +77,7 @@ def get_recipe_details(recipe_id):
             "id": recipe_id,
             "title": data.get("title"),
             "sourceUrl": data.get("sourceUrl", ""),
-            "ingredients": [i["original"].lower() for i in data.get("extendedIngredients", [])],
+            "ingredients": [i["original"] for i in data.get("extendedIngredients", [])],
             "instructions": data.get("instructions", ""),
             "readyInMinutes": data.get("readyInMinutes", "N/A"),
             "servings": data.get("servings", "N/A")
@@ -99,7 +100,7 @@ def get_recipes(ingredients):
         details = get_recipe_details(recipe["id"])
         if not details:
             continue
-        lower_ings = [ing.lower() for ing in details.get("ingredients", [])]
+        lower_ings = [ing for ing in details.get("ingredients", [])]
         if all(any(i in ing for ing in lower_ings) for i in ingredients):
             matched.append(details)
             RECIPE_HISTORY.add(recipe["id"])
@@ -115,7 +116,6 @@ def handle_with_gemini_fallback(user_query):
         logging.error(f"Gemini error: {e}")
         return "I couldn't answer that question right now."
 
-
 # Main webhook
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -125,77 +125,35 @@ def webhook():
     parameters = req["queryResult"].get("parameters", {})
 
     if intent == "UploadImageIntent":
-        # base64_image = parameters.get("imageBase64")
-        # TEMP_INGREDIENTS = recognize_ingredients_from_base64(base64_image)
-        TEMP_INGREDIENTS = ["eggplant", "tomato", "onion"]
+        base64_image = parameters.get("imageBase64")
+        TEMP_INGREDIENTS = recognize_ingredients_from_base64(base64_image)
         if TEMP_INGREDIENTS:
             return jsonify({
-                "fulfillmentText": f"I found these ingredients: {', '.join(TEMP_INGREDIENTS)}. Would you like to add or remove any?"
+                "fulfillmentText": "I found these ingredients. Please confirm or edit.",
+                "ingredients": TEMP_INGREDIENTS
             })
         else:
             return jsonify({"fulfillmentText": "No ingredients found in the image."})
 
-
     elif intent == "ConfirmIngredientsIntent":
-        add_list = parameters.get("addList", [])
-        remove_list = parameters.get("removeList", [])
+        add_list = parameters.get("addList", "")
+        remove_list = parameters.get("removeList", "")
+        if remove_list:
+            for item in remove_list.lower().split(","):
+                if item.strip() in TEMP_INGREDIENTS:
+                    TEMP_INGREDIENTS.remove(item.strip())
+        if add_list:
+            for item in add_list.lower().split(","):
+                if item.strip() and item.strip() not in TEMP_INGREDIENTS:
+                    TEMP_INGREDIENTS.append(item.strip())
+        if TEMP_INGREDIENTS:
+            return jsonify(
+                {"fulfillmentText": f"Updated ingredients: {', '.join(TEMP_INGREDIENTS)}. Should I find recipes?"})
+        else:
+            return jsonify({"fulfillmentText": "No ingredients left after changes."})
 
-        # Normalize: Make sure we always deal with lists of strings
-        if isinstance(remove_list, str):
-            remove_list = [item.strip() for item in remove_list.split(",")]
-        if isinstance(add_list, str):
-            add_list = [item.strip() for item in add_list.split(",")]
-
-        # Apply removals
-        for item in remove_list:
-            if item in TEMP_INGREDIENTS:
-                TEMP_INGREDIENTS.remove(item)
-
-        # Apply additions
-        for item in add_list:
-            if item and item not in TEMP_INGREDIENTS:
-                TEMP_INGREDIENTS.append(item)
-
-        # Return recipes directly via a follow-up event
-        return jsonify({
-            "followupEventInput": {
-                "name": "GetRecipesEvent",
-                "languageCode": "en",
-                "parameters": {
-                    "ingredients": TEMP_INGREDIENTS
-                }
-            }
-        })
-        # add_list = parameters.get("addList", "")
-        # remove_list = parameters.get("removeList", "")
-
-        # # ✅ Normalize remove_list
-        # if isinstance(remove_list, list):
-        #     items_to_remove = remove_list
-        # else:
-        #     items_to_remove = [i.strip().lower() for i in remove_list.split(",")]
-        # for item in items_to_remove:
-        #     if item in TEMP_INGREDIENTS:
-        #         TEMP_INGREDIENTS.remove(item)
-
-        # # ✅ Normalize add_list
-        # if isinstance(add_list, list):
-        #     items_to_add = add_list
-        # else:
-        #     items_to_add = [i.strip().lower() for i in add_list.split(",")]
-        # for item in items_to_add:
-        #     if item and item not in TEMP_INGREDIENTS:
-        #         TEMP_INGREDIENTS.append(item)
-        # if TEMP_INGREDIENTS:
-        #     return jsonify(
-        #         {"fulfillmentText": f"Updated ingredients: {', '.join(TEMP_INGREDIENTS)}. Should I find recipes?"})
-        # else:
-        #     return jsonify({"fulfillmentText": "No ingredients left after changes."})
-
-    if intent == "GetRecipesIntent":
+    elif intent == "GetRecipesIntent":
         raw = parameters.get("ingredients", [])
-
-        # ✅ FIX: Handle both str and list with potential comma-separated values
         ingredients = []
         if isinstance(raw, list):
             for item in raw:
@@ -205,6 +163,12 @@ def webhook():
 
         if not ingredients:
             ingredients = TEMP_INGREDIENTS
+        else:
+            TEMP_INGREDIENTS = ingredients
+        if not ingredients:
+            return jsonify({
+                "fulfillmentText": "No ingredients provided. Please upload an image or type ingredients."
+            })
 
         RECIPE_CACHE = []
         while ingredients:
@@ -214,12 +178,34 @@ def webhook():
                 RECIPE_CACHE = results
                 break
             ingredients.pop()
-
         if RECIPE_CACHE:
-            response_text = "\n".join([f"{i + 1}. {r['title']} - {r['sourceUrl']}" for i, r in enumerate(RECIPE_CACHE)])
+            recipes_data = []
+            ingredient_comparison = {}
+            for r in RECIPE_CACHE:
+                user_ings = set(TEMP_INGREDIENTS)
+                recipe_ings = set(r["ingredients"])
+                available = list(recipe_ings & user_ings)
+                missing = list(recipe_ings - user_ings)
+                recipes_data.append({
+                    "id": r["id"],
+                    "title": r["title"],
+                    "sourceUrl": r["sourceUrl"],
+                    "readyInMinutes": r.get("readyInMinutes", "N/A"),
+                    "servings": r.get("servings", "N/A")
+                })
+                ingredient_comparison[r["id"]] = {
+                    "available": available,
+                    "missing": missing,
+                    "matchCount": len(available),
+                    "totalRequired": len(recipe_ings)
+                }
+            return jsonify({
+                "fulfillmentText": "Here are recipes based on your ingredients.",
+                "recipes": recipes_data,
+                "ingredientDetails": ingredient_comparison
+            })
         else:
-            response_text = "Sorry, no recipes found with the available ingredients."
-        return jsonify({"fulfillmentText": response_text})
+            return jsonify({"fulfillmentText": "Sorry, no recipes found with the available ingredients."})
 
     elif intent == "ShowRecipeDetailsIntent":
         recipe_number = parameters.get("recipeNumber")
@@ -230,11 +216,13 @@ def webhook():
             recipe_number = int(recipe_number)
             if 1 <= recipe_number <= len(RECIPE_CACHE):
                 recipe = RECIPE_CACHE[recipe_number - 1]
-        elif recipe_name:
+
+        if not recipe and recipe_name:
             for r in RECIPE_CACHE:
-                if r["title"].lower() == recipe_name:
+                if recipe_name in r["title"].lower():
                     recipe = r
                     break
+
         if recipe:
             LAST_RECIPE_SHOWN = recipe
             return jsonify({
@@ -247,6 +235,7 @@ def webhook():
             })
         return jsonify({"fulfillmentText": "Recipe not found. Try a different number or name."})
 
+
     elif intent == "RandomRecipeIntent":
         url = f"https://api.spoonacular.com/recipes/random?number=5&apiKey={SPOONACULAR_API_KEY}"
         response = requests.get(url)
@@ -255,6 +244,7 @@ def webhook():
             RECIPE_CACHE.clear()
             for r in data.get("recipes", []):
                 RECIPE_CACHE.append({
+                    "id": r["id"],
                     "title": r["title"],
                     "sourceUrl": r.get("sourceUrl", "No URL"),
                     "readyInMinutes": r.get("readyInMinutes", "N/A"),
@@ -262,11 +252,14 @@ def webhook():
                     "ingredients": [i["original"] for i in r.get("extendedIngredients", [])],
                     "instructions": r.get("instructions", "Instructions not available.")
                 })
+
             titles = "\n".join([f"{i + 1}. {r['title']}" for i, r in enumerate(RECIPE_CACHE)])
-            return jsonify({"fulfillmentText": f"🍽️ Here are 5 random recipes:\n{titles}"})
+            return jsonify({
+                "fulfillmentText": "Here are 5 random recipes.",
+                "recipes": RECIPE_CACHE
+            })
         return jsonify({"fulfillmentText": "Couldn't fetch random recipes right now."})
 
-    # ✅ Gemini fallback
     elif intent == "Default Fallback Intent":
         fallback_question = req["queryResult"]["queryText"]
 
@@ -285,14 +278,13 @@ def webhook():
         try:
             logging.info("🔁 Sending fallback query to Gemini with context:")
             logging.info(meal_context)
-            response = gemini_model.generate_content([meal_context])
+            response = gemini_model.generate_content(meal_context)
             return jsonify({"fulfillmentText": response.text.strip()})
         except Exception as e:
             logging.error(f"Gemini error: {e}")
             return jsonify({"fulfillmentText": "I'm still learning. Let me try again or ask something else!"})
 
     return jsonify({"fulfillmentText": "Sorry, I didn't understand. Try uploading an image or asking for a recipe."})
-
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
