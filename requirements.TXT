@@ -1,7 +1,3 @@
 flask
-requests
-clarifai-grpc
-Pillow
-google-generativeai
 google-cloud-dialogflow
 google-auth
