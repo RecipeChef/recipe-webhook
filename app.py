@@ -136,18 +136,39 @@ def recipe_suggestions():
 
 
         new_recipes = []
-        for recipe in recipes_data:
-            if recipe["id"] not in already_shown:
-                new_recipes.append({
-                    "id": recipe["id"],
-                    "title": recipe["title"],
-                    "image": recipe["image"],
-                    "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
-                    "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
-                })
-                already_shown.add(recipe["id"])
-            if len(new_recipes) == 5:
-                break
+        # for recipe in recipes_data:
+        #     if recipe["id"] not in already_shown:
+        #         new_recipes.append({
+        #             "id": recipe["id"],
+        #             "title": recipe["title"],
+        #             "image": recipe["image"],
+        #             "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
+        #             "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
+        #         })
+        #         already_shown.add(recipe["id"])
+        #     if len(new_recipes) == 5:
+        #         break
+
+        attempts = 0
+
+        while len(new_recipes) < 5 and attempts < 5:
+            response = requests.get(url, params=params)
+            recipes_data = response.json()
+        
+            for recipe in recipes_data:
+                if recipe["id"] not in already_shown:
+                    new_recipes.append({
+                        "id": recipe["id"],
+                        "title": recipe["title"],
+                        "image": recipe["image"],
+                        "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
+                        "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
+                    })
+                    already_shown.add(recipe["id"])
+                    if len(new_recipes) == 5:
+                        break
+        
+            attempts += 1
 
         USER_STATE[session_id]["shown_recipe_ids"] = list(already_shown)
         return jsonify({"recipes": new_recipes})
@@ -180,18 +201,38 @@ def handle_more_recipes(session_id):
 
 
         new_recipes = []
-        for recipe in recipes_data:
-            if recipe["id"] not in already_shown:
-                new_recipes.append({
-                    "id": recipe["id"],
-                    "title": recipe["title"],
-                    "image": recipe["image"],
-                    "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
-                    "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
-                })
-                already_shown.add(recipe["id"])
-            if len(new_recipes) == 5:
-                break
+        # for recipe in recipes_data:
+        #     if recipe["id"] not in already_shown:
+        #         new_recipes.append({
+        #             "id": recipe["id"],
+        #             "title": recipe["title"],
+        #             "image": recipe["image"],
+        #             "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
+        #             "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
+        #         })
+        #         already_shown.add(recipe["id"])
+        #     if len(new_recipes) == 5:
+        #         break
+        attempts = 0
+
+        while len(new_recipes) < 5 and attempts < 5:
+            response = requests.get(url, params=params)
+            recipes_data = response.json()
+        
+            for recipe in recipes_data:
+                if recipe["id"] not in already_shown:
+                    new_recipes.append({
+                        "id": recipe["id"],
+                        "title": recipe["title"],
+                        "image": recipe["image"],
+                        "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
+                        "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
+                    })
+                    already_shown.add(recipe["id"])
+                    if len(new_recipes) == 5:
+                        break
+        
+            attempts += 1
 
         USER_STATE[session_id]["shown_recipe_ids"] = list(already_shown)
         return jsonify({"reply": "Here are more recipe suggestions!", "recipes": new_recipes})
