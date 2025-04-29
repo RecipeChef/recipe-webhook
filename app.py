@@ -37,19 +37,20 @@ def analyze_image():
         UNWANTED_WORDS = {"aliment", "micronutrient", "pasture", "comestible"}
         CONFIDENCE_THRESHOLD = 0.3
 
+        # 1. Get image file
         image_file = request.files['file']
-        image = Image.open(image_file.stream)
-
+        image = Image.open(image_file.stream).convert("RGB")  # Ensure RGB
         resized = image.resize((300, 300))
         logging.info(f"Image size after resize: {resized.size}")
 
+        # 2. Convert to base64 (bytes only!)
         buffered = io.BytesIO()
-        resized.save(buffered, format="JPEG")
+        resized.save(buffered, format="JPEG")  # Save explicitly as JPEG
         image_bytes = buffered.getvalue()
         image_base64 = base64.b64encode(image_bytes)
         logging.info(f"Base64 length: {len(image_base64)}")
 
-        # Clarifai call
+        # 3. Send to Clarifai
         request_clarifai = service_pb2.PostModelOutputsRequest(
             model_id="food-item-v1-recognition",
             inputs=[
@@ -62,18 +63,23 @@ def analyze_image():
         )
         response = clarifai_stub.PostModelOutputs(request_clarifai, metadata=clarifai_metadata)
 
+        # 4. Handle response
         logging.info("RAW Clarifai response:")
         logging.info(str(response))
 
+        if response.status.code != status_code_pb2.SUCCESS:
+            logging.error(f"Clarifai error: {response.status.description}")
+            return jsonify({"error": "Clarifai model failed", "clarifai_details": response.status.description}), 500
+
         ingredients = []
-        if response.status.code == status_code_pb2.SUCCESS:
-            logging.info("Clarifai detected concepts:")
-            for concept in response.outputs[0].data.concepts:
-                logging.info(f"- {concept.name} ({concept.value:.2f})")
-                if concept.value > CONFIDENCE_THRESHOLD and concept.name not in UNWANTED_WORDS:
-                    ingredients.append(concept.name)
+        logging.info("Clarifai detected concepts:")
+        for concept in response.outputs[0].data.concepts:
+            logging.info(f"- {concept.name} ({concept.value:.2f})")
+            if concept.value > CONFIDENCE_THRESHOLD and concept.name not in UNWANTED_WORDS:
+                ingredients.append(concept.name)
 
         return jsonify({"ingredients": ingredients})
+
     except Exception as e:
         logging.exception("Clarifai image analysis failed")
         return jsonify({"error": str(e)}), 500
