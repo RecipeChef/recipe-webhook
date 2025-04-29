@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify #Yeni
+from flask import Flask, request, jsonify
 from PIL import Image
 import base64
 import io
@@ -29,8 +29,8 @@ clarifai_stub = service_pb2_grpc.V2Stub(clarifai_channel)
 clarifai_metadata = (("authorization", f"Key {CLARIFAI_API_KEY}"),)
 
 # === 🔐 Spoonacular Setup ===
-SPOONACULAR_API_KEY = "b97364cb57314c0fb18b8d7e93d7e5fc"  # <== CHANGE THIS!
-#SPOONACULAR_API_KEY = "d9aa75aad8ba43eebbe69f973e4433eb"
+SPOONACULAR_API_KEY = "your-spoonacular-api-key"  # <== CHANGE THIS!
+
 # === 🌟 In-memory user session state ===
 USER_STATE = {}
 
@@ -45,6 +45,11 @@ def chat():
     query_input = dialogflow.QueryInput(text=text_input)
     response = dialogflow_session_client.detect_intent(session=session, query_input=query_input)
 
+    intent_name = response.query_result.intent.display_name
+
+    if intent_name == "MoreRecipesIntent":
+        return handle_more_recipes(session_id)
+
     return jsonify({'reply': response.query_result.fulfillment_text})
 
 # === /analyze-image ===
@@ -54,18 +59,15 @@ def analyze_image():
         UNWANTED_WORDS = {"aliment", "micronutrient", "pasture", "comestible"}
         CONFIDENCE_THRESHOLD = 0.5
 
-        # 1. Get image from Flutter
         image_file = request.files['file']
         image = Image.open(image_file.stream).convert("RGB")
         resized = image.resize((300, 300))
         logging.info(f"Image resized to: {resized.size}")
 
-        # 2. Save to bytes directly (NO base64!)
         buffered = io.BytesIO()
         resized.save(buffered, format="JPEG")
         image_bytes = buffered.getvalue()
 
-        # 3. Send raw image bytes to Clarifai
         request_clarifai = service_pb2.PostModelOutputsRequest(
             model_id="food-item-v1-recognition",
             inputs=[
@@ -83,7 +85,6 @@ def analyze_image():
             logging.error(f"Clarifai model error: {response.status.description}")
             return jsonify({"error": "Clarifai model failed"}), 500
 
-        # 4. Parse Clarifai response
         ingredients = []
         logging.info("Clarifai results:")
         for concept in response.outputs[0].data.concepts:
@@ -91,7 +92,6 @@ def analyze_image():
             if concept.value > CONFIDENCE_THRESHOLD and concept.name not in UNWANTED_WORDS:
                 ingredients.append(concept.name)
 
-        # Save ingredients in user state
         USER_STATE["user-session-id"] = {
             "ingredients": ingredients,
             "shown_recipe_ids": [],
@@ -151,6 +151,49 @@ def recipe_suggestions():
 
     except Exception as e:
         logging.exception("Recipe fetch failed")
+        return jsonify({"error": str(e)}), 500
+
+# === handle_more_recipes ===
+def handle_more_recipes(session_id):
+    try:
+        user_data = USER_STATE.get(session_id)
+        if not user_data or not user_data.get("ingredients"):
+            return jsonify({"reply": "Sorry, I couldn't find your ingredients. Please send a new image."})
+
+        ingredients = user_data["ingredients"]
+        already_shown = set(user_data.get("shown_recipe_ids", []))
+
+        url = "https://api.spoonacular.com/recipes/findByIngredients"
+        params = {
+            "ingredients": ",".join(ingredients),
+            "number": 10,
+            "ranking": 1,
+            "ignorePantry": True,
+            "apiKey": SPOONACULAR_API_KEY
+        }
+
+        response = requests.get(url, params=params)
+        recipes_data = response.json()
+
+        new_recipes = []
+        for recipe in recipes_data:
+            if recipe["id"] not in already_shown:
+                new_recipes.append({
+                    "id": recipe["id"],
+                    "title": recipe["title"],
+                    "image": recipe["image"],
+                    "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
+                    "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
+                })
+                already_shown.add(recipe["id"])
+            if len(new_recipes) == 5:
+                break
+
+        USER_STATE[session_id]["shown_recipe_ids"] = list(already_shown)
+        return jsonify({"reply": "Here are more recipe suggestions!", "recipes": new_recipes})
+
+    except Exception as e:
+        logging.exception("More recipe fetch failed")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
