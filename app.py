@@ -130,7 +130,9 @@ def recipe_suggestions():
         }
 
         response = requests.get(url, params=params)
-        recipes_data = response.json()
+        # recipes_data = response.json()
+        recipes_data = response.json().get("recipes", response.json())
+
 
         new_recipes = []
         for recipe in recipes_data:
@@ -173,7 +175,9 @@ def handle_more_recipes(session_id):
         }
 
         response = requests.get(url, params=params)
-        recipes_data = response.json()
+        # recipes_data = response.json()
+        recipes_data = response.json().get("recipes", response.json())
+
 
         new_recipes = []
         for recipe in recipes_data:
