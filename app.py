@@ -31,6 +31,20 @@ clarifai_metadata = (("authorization", f"Key {CLARIFAI_API_KEY}"),)
 # === 🔐 Spoonacular Setup ===
 SPOONACULAR_API_KEY = "your-spoonacular-api-key"  # <== CHANGE THIS!
 
+# === /chat ===
+@app.route('/chat', methods=['POST'])
+def chat():
+    user_message = request.json.get('message')
+    session_id = "user-session-id"
+
+    session = dialogflow_session_client.session_path(DIALOGFLOW_PROJECT_ID, session_id)
+    text_input = dialogflow.TextInput(text=user_message, language_code="en")
+    query_input = dialogflow.QueryInput(text=text_input)
+    response = dialogflow_session_client.detect_intent(session=session, query_input=query_input)
+
+    return jsonify({'reply': response.query_result.fulfillment_text})
+    
+
 @app.route('/analyze-image', methods=['POST'])
 def analyze_image():
     try:
