@@ -124,7 +124,7 @@ def recipe_suggestions():
         url = "https://api.spoonacular.com/recipes/findByIngredients"
         params = {
             "ingredients": ",".join(ingredients),
-            "number": 10,
+            "number": 20, #10
             "ranking": 1,
             "ignorePantry": True,
             "apiKey": SPOONACULAR_API_KEY
@@ -169,7 +169,7 @@ def handle_more_recipes(session_id):
         url = "https://api.spoonacular.com/recipes/findByIngredients"
         params = {
             "ingredients": ",".join(ingredients),
-            "number": 10,
+            "number": 20, #10
             "ranking": 1,
             "ignorePantry": True,
             "apiKey": SPOONACULAR_API_KEY
