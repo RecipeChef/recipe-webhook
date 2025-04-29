@@ -82,7 +82,8 @@ def analyze_image():
         ingredients = []
         if response.status.code == status_code_pb2.SUCCESS:
             for concept in response.outputs[0].data.concepts:
-                if concept.value > 0.5 and concept.name not in UNWANTED_WORDS:
+                print(f"{concept.name} ({concept.value})") #,,
+                if concept.value > 0.3 and concept.name not in UNWANTED_WORDS: # instead of 0.5
                     ingredients.append(concept.name)
 
         return jsonify({"ingredients": ingredients})
