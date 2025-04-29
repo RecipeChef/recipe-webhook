@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify #Yeni
 from PIL import Image
 import base64
 import io
@@ -31,6 +31,9 @@ clarifai_metadata = (("authorization", f"Key {CLARIFAI_API_KEY}"),)
 # === 🔐 Spoonacular Setup ===
 SPOONACULAR_API_KEY = "your-spoonacular-api-key"  # <== CHANGE THIS!
 
+# === 🌟 In-memory user session state ===
+USER_STATE = {}
+
 # === /chat ===
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -43,8 +46,8 @@ def chat():
     response = dialogflow_session_client.detect_intent(session=session, query_input=query_input)
 
     return jsonify({'reply': response.query_result.fulfillment_text})
-    
 
+# === /analyze-image ===
 @app.route('/analyze-image', methods=['POST'])
 def analyze_image():
     try:
@@ -60,7 +63,7 @@ def analyze_image():
         # 2. Save to bytes directly (NO base64!)
         buffered = io.BytesIO()
         resized.save(buffered, format="JPEG")
-        image_bytes = buffered.getvalue()  # ✅ Raw image bytes for Clarifai
+        image_bytes = buffered.getvalue()
 
         # 3. Send raw image bytes to Clarifai
         request_clarifai = service_pb2.PostModelOutputsRequest(
@@ -88,11 +91,67 @@ def analyze_image():
             if concept.value > CONFIDENCE_THRESHOLD and concept.name not in UNWANTED_WORDS:
                 ingredients.append(concept.name)
 
+        # Save ingredients in user state
+        USER_STATE["user-session-id"] = {
+            "ingredients": ingredients,
+            "shown_recipe_ids": [],
+            "chosen_recipe": None
+        }
+
         return jsonify({"ingredients": ingredients})
 
     except Exception as e:
         logging.exception("Clarifai image analysis failed")
         return jsonify({"error": str(e)}), 500
-        
+
+# === /recipe-suggestions ===
+@app.route('/recipe-suggestions', methods=['POST'])
+def recipe_suggestions():
+    try:
+        data = request.json
+        ingredients = data.get('ingredients', [])
+        session_id = data.get('session_id', 'user-session-id')
+
+        if not ingredients:
+            return jsonify({"error": "No ingredients provided."}), 400
+
+        if session_id not in USER_STATE:
+            USER_STATE[session_id] = {"shown_recipe_ids": []}
+
+        already_shown = set(USER_STATE[session_id].get("shown_recipe_ids", []))
+
+        url = "https://api.spoonacular.com/recipes/findByIngredients"
+        params = {
+            "ingredients": ",".join(ingredients),
+            "number": 10,
+            "ranking": 1,
+            "ignorePantry": True,
+            "apiKey": SPOONACULAR_API_KEY
+        }
+
+        response = requests.get(url, params=params)
+        recipes_data = response.json()
+
+        new_recipes = []
+        for recipe in recipes_data:
+            if recipe["id"] not in already_shown:
+                new_recipes.append({
+                    "id": recipe["id"],
+                    "title": recipe["title"],
+                    "image": recipe["image"],
+                    "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
+                    "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
+                })
+                already_shown.add(recipe["id"])
+            if len(new_recipes) == 5:
+                break
+
+        USER_STATE[session_id]["shown_recipe_ids"] = list(already_shown)
+        return jsonify({"recipes": new_recipes})
+
+    except Exception as e:
+        logging.exception("Recipe fetch failed")
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
