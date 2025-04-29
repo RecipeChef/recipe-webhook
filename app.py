@@ -35,22 +35,21 @@ SPOONACULAR_API_KEY = "your-spoonacular-api-key"  # <== CHANGE THIS!
 def analyze_image():
     try:
         UNWANTED_WORDS = {"aliment", "micronutrient", "pasture", "comestible"}
-        CONFIDENCE_THRESHOLD = 0.3  # 🔥 Lowered for testing
+        CONFIDENCE_THRESHOLD = 0.3
 
-        # 1. Receive image file
         image_file = request.files['file']
         image = Image.open(image_file.stream)
 
-        # 2. Resize to 300x300
         resized = image.resize((300, 300))
+        print(f"Image size after resize: {resized.size}")
 
-        # 3. Convert to base64 (KEEP AS BYTES)
         buffered = io.BytesIO()
         resized.save(buffered, format="JPEG")
         image_bytes = buffered.getvalue()
-        image_base64 = base64.b64encode(image_bytes)  # bytes, no decode!
+        image_base64 = base64.b64encode(image_bytes)
+        print(f"Base64 length: {len(image_base64)}")  # 🔍 Check it's not too small
 
-        # 4. Send to Clarifai
+        # Clarifai call
         request_clarifai = service_pb2.PostModelOutputsRequest(
             model_id="food-item-v1-recognition",
             inputs=[
@@ -63,12 +62,14 @@ def analyze_image():
         )
         response = clarifai_stub.PostModelOutputs(request_clarifai, metadata=clarifai_metadata)
 
+        print("RAW Clarifai response:")
+        print(response)
+
         ingredients = []
         if response.status.code == status_code_pb2.SUCCESS:
             print("Clarifai detected concepts:")
             for concept in response.outputs[0].data.concepts:
-                print(f"- {concept.name} ({concept.value:.2f})")  # 🔥 Logs concept name + confidence
-
+                print(f"- {concept.name} ({concept.value:.2f})")
                 if concept.value > CONFIDENCE_THRESHOLD and concept.name not in UNWANTED_WORDS:
                     ingredients.append(concept.name)
 
