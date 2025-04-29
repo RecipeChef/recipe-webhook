@@ -127,6 +127,7 @@ def recipe_suggestions():
             "number": 20, #10
             "ranking": 1,
             "ignorePantry": True,
+            "sort": "random",
             "apiKey": SPOONACULAR_API_KEY
         }
 
@@ -193,6 +194,7 @@ def handle_more_recipes(session_id):
             "number": 20, #10
             "ranking": 1,
             "ignorePantry": True,
+            "sort": "random",
             "apiKey": SPOONACULAR_API_KEY
         }
 
