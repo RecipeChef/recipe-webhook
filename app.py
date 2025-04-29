@@ -63,7 +63,7 @@ def analyze_image():
         buffered = io.BytesIO()
         resized.save(buffered, format="JPEG")
         image_bytes = buffered.getvalue()
-        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        image_base64 = base64.b64encode(image_bytes)
 
         # 4. Send to Clarifai
         request_clarifai = service_pb2.PostModelOutputsRequest(
