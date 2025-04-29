@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify #Yeni çalışan 
 from PIL import Image
 import base64
 import io
@@ -16,21 +16,20 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
 # === 🔐 Dialogflow Setup ===
-DIALOGFLOW_PROJECT_ID = "recipechef-noml"  # <== CHANGE THIS!
+DIALOGFLOW_PROJECT_ID = "recipechef-noml"
 DIALOGFLOW_CREDENTIALS = service_account.Credentials.from_service_account_file(
     "/etc/secrets/dialogflow_key.json"
 )
 dialogflow_session_client = dialogflow.SessionsClient(credentials=DIALOGFLOW_CREDENTIALS)
 
 # === 🔐 Clarifai Setup ===
-CLARIFAI_API_KEY = "4a4ea9088cfa42c29e63f7b6806ad272"  # <== CHANGE THIS!
+CLARIFAI_API_KEY = "4a4ea9088cfa42c29e63f7b6806ad272"
 clarifai_channel = ClarifaiChannel.get_grpc_channel()
 clarifai_stub = service_pb2_grpc.V2Stub(clarifai_channel)
 clarifai_metadata = (("authorization", f"Key {CLARIFAI_API_KEY}"),)
 
 # === 🔐 Spoonacular Setup ===
-SPOONACULAR_API_KEY = "b97364cb57314c0fb18b8d7e93d7e5fc"  # <== CHANGE THIS!
-#SPOONACULAR_API_KEY = "d9aa75aad8ba43eebbe69f973e4433eb"
+SPOONACULAR_API_KEY = "b97364cb57314c0fb18b8d7e93d7e5fc"
 
 # === 🌟 In-memory user session state ===
 USER_STATE = {}
@@ -124,38 +123,20 @@ def recipe_suggestions():
         url = "https://api.spoonacular.com/recipes/findByIngredients"
         params = {
             "ingredients": ",".join(ingredients),
-            "number": 20, #10
+            "number": 15,
             "ranking": 1,
             "ignorePantry": True,
             "sort": "random",
             "apiKey": SPOONACULAR_API_KEY
         }
 
-        response = requests.get(url, params=params)
-        recipes_data = response.json()
-        
-
-
         new_recipes = []
-        # for recipe in recipes_data:
-        #     if recipe["id"] not in already_shown:
-        #         new_recipes.append({
-        #             "id": recipe["id"],
-        #             "title": recipe["title"],
-        #             "image": recipe["image"],
-        #             "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
-        #             "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
-        #         })
-        #         already_shown.add(recipe["id"])
-        #     if len(new_recipes) == 5:
-        #         break
-
         attempts = 0
 
         while len(new_recipes) < 5 and attempts < 5:
             response = requests.get(url, params=params)
             recipes_data = response.json()
-        
+
             for recipe in recipes_data:
                 if recipe["id"] not in already_shown:
                     new_recipes.append({
@@ -168,7 +149,6 @@ def recipe_suggestions():
                     already_shown.add(recipe["id"])
                     if len(new_recipes) == 5:
                         break
-        
             attempts += 1
 
         USER_STATE[session_id]["shown_recipe_ids"] = list(already_shown)
@@ -178,7 +158,7 @@ def recipe_suggestions():
         logging.exception("Recipe fetch failed")
         return jsonify({"error": str(e)}), 500
 
-# === handle_more_recipes ===
+# === /handle-more-recipes ===
 def handle_more_recipes(session_id):
     try:
         user_data = USER_STATE.get(session_id)
@@ -191,36 +171,20 @@ def handle_more_recipes(session_id):
         url = "https://api.spoonacular.com/recipes/findByIngredients"
         params = {
             "ingredients": ",".join(ingredients),
-            "number": 20, #10
+            "number": 15,
             "ranking": 1,
             "ignorePantry": True,
             "sort": "random",
             "apiKey": SPOONACULAR_API_KEY
         }
 
-        response = requests.get(url, params=params)
-        recipes_data = response.json()
-
-
         new_recipes = []
-        # for recipe in recipes_data:
-        #     if recipe["id"] not in already_shown:
-        #         new_recipes.append({
-        #             "id": recipe["id"],
-        #             "title": recipe["title"],
-        #             "image": recipe["image"],
-        #             "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
-        #             "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
-        #         })
-        #         already_shown.add(recipe["id"])
-        #     if len(new_recipes) == 5:
-        #         break
         attempts = 0
 
         while len(new_recipes) < 5 and attempts < 5:
             response = requests.get(url, params=params)
             recipes_data = response.json()
-        
+
             for recipe in recipes_data:
                 if recipe["id"] not in already_shown:
                     new_recipes.append({
@@ -233,11 +197,11 @@ def handle_more_recipes(session_id):
                     already_shown.add(recipe["id"])
                     if len(new_recipes) == 5:
                         break
-        
             attempts += 1
 
         USER_STATE[session_id]["shown_recipe_ids"] = list(already_shown)
-        return jsonify({"reply": "Here are more recipe suggestions!", "recipes": new_recipes})
+        recipe_ids = [r["id"] for r in new_recipes]
+        return jsonify({"reply": f"Here are more recipe suggestions! (IDs: {recipe_ids})", "recipes": new_recipes})
 
     except Exception as e:
         logging.exception("More recipe fetch failed")
