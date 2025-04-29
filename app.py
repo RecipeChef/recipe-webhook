@@ -31,35 +31,30 @@ clarifai_metadata = (("authorization", f"Key {CLARIFAI_API_KEY}"),)
 # === 🔐 Spoonacular Setup ===
 SPOONACULAR_API_KEY = "your-spoonacular-api-key"  # <== CHANGE THIS!
 
-
 @app.route('/analyze-image', methods=['POST'])
 def analyze_image():
     try:
         UNWANTED_WORDS = {"aliment", "micronutrient", "pasture", "comestible"}
         CONFIDENCE_THRESHOLD = 0.5
 
-        # 1. Receive image file
+        # 1. Get image from Flutter
         image_file = request.files['file']
         image = Image.open(image_file.stream).convert("RGB")
         resized = image.resize((300, 300))
         logging.info(f"Image resized to: {resized.size}")
 
-        # 2. Convert image to base64 and then decode it back to raw bytes
+        # 2. Save to bytes directly (NO base64!)
         buffered = io.BytesIO()
         resized.save(buffered, format="JPEG")
-        image_bytes = buffered.getvalue()
+        image_bytes = buffered.getvalue()  # ✅ Raw image bytes for Clarifai
 
-        # Encode and decode to ensure clean base64 -> bytes conversion
-        image_base64_str = base64.b64encode(image_bytes).decode("utf-8")
-        image_bytes_for_clarifai = base64.b64decode(image_base64_str)  # ✅ Send this to Clarifai
-
-        # 3. Clarifai request
+        # 3. Send raw image bytes to Clarifai
         request_clarifai = service_pb2.PostModelOutputsRequest(
             model_id="food-item-v1-recognition",
             inputs=[
                 resources_pb2.Input(
                     data=resources_pb2.Data(
-                        image=resources_pb2.Image(base64=image_bytes_for_clarifai)
+                        image=resources_pb2.Image(base64=image_bytes)
                     )
                 )
             ]
@@ -71,7 +66,7 @@ def analyze_image():
             logging.error(f"Clarifai model error: {response.status.description}")
             return jsonify({"error": "Clarifai model failed"}), 500
 
-        # 4. Parse and filter concepts
+        # 4. Parse Clarifai response
         ingredients = []
         logging.info("Clarifai results:")
         for concept in response.outputs[0].data.concepts:
@@ -84,6 +79,6 @@ def analyze_image():
     except Exception as e:
         logging.exception("Clarifai image analysis failed")
         return jsonify({"error": str(e)}), 500
-# === Run Flask server ===
+        
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
