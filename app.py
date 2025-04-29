@@ -29,8 +29,8 @@ clarifai_stub = service_pb2_grpc.V2Stub(clarifai_channel)
 clarifai_metadata = (("authorization", f"Key {CLARIFAI_API_KEY}"),)
 
 # === 🔐 Spoonacular Setup ===
-SPOONACULAR_API_KEY = "your-spoonacular-api-key"  # <== CHANGE THIS!
-
+SPOONACULAR_API_KEY = "b97364cb57314c0fb18b8d7e93d7e5fc"  # <== CHANGE THIS!
+#SPOONACULAR_API_KEY = "d9aa75aad8ba43eebbe69f973e4433eb"
 # === 🌟 In-memory user session state ===
 USER_STATE = {}
 
