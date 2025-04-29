@@ -41,13 +41,13 @@ def analyze_image():
         image = Image.open(image_file.stream)
 
         resized = image.resize((300, 300))
-        print(f"Image size after resize: {resized.size}")
+        logging.info(f"Image size after resize: {resized.size}")
 
         buffered = io.BytesIO()
         resized.save(buffered, format="JPEG")
         image_bytes = buffered.getvalue()
         image_base64 = base64.b64encode(image_bytes)
-        print(f"Base64 length: {len(image_base64)}")  # 🔍 Check it's not too small
+        logging.info(f"Base64 length: {len(image_base64)}")
 
         # Clarifai call
         request_clarifai = service_pb2.PostModelOutputsRequest(
@@ -62,14 +62,14 @@ def analyze_image():
         )
         response = clarifai_stub.PostModelOutputs(request_clarifai, metadata=clarifai_metadata)
 
-        print("RAW Clarifai response:")
-        print(response)
+        logging.info("RAW Clarifai response:")
+        logging.info(str(response))
 
         ingredients = []
         if response.status.code == status_code_pb2.SUCCESS:
-            print("Clarifai detected concepts:")
+            logging.info("Clarifai detected concepts:")
             for concept in response.outputs[0].data.concepts:
-                print(f"- {concept.name} ({concept.value:.2f})")
+                logging.info(f"- {concept.name} ({concept.value:.2f})")
                 if concept.value > CONFIDENCE_THRESHOLD and concept.name not in UNWANTED_WORDS:
                     ingredients.append(concept.name)
 
