@@ -77,6 +77,7 @@ def analyze_image():
             ]
         )
         response = clarifai_stub.PostModelOutputs(request_clarifai, metadata=clarifai_metadata)
+        print(response) #,,
 
         ingredients = []
         if response.status.code == status_code_pb2.SUCCESS:
