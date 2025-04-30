@@ -164,6 +164,7 @@ def recipe_suggestions():
 def handle_more_recipes(session_id):
     try:
         user_data = USER_STATE.get(session_id)
+        logging.info(f"User state for {session_id}: {user_data}") #added for test
         if not user_data or not user_data.get("ingredients"):
             return jsonify({"reply": "Sorry, I couldn't find your ingredients. Please send a new image."})
 
