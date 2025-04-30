@@ -119,6 +119,7 @@ def recipe_suggestions():
             USER_STATE[session_id] = {"shown_recipe_ids": []}
 
         already_shown = set(USER_STATE[session_id].get("shown_recipe_ids", []))
+        logging.info(f"[recipe-suggestions] Already shown for {session_id}: {already_shown}")
 
         url = "https://api.spoonacular.com/recipes/findByIngredients"
         params = {
@@ -151,7 +152,8 @@ def recipe_suggestions():
                         break
             attempts += 1
 
-        USER_STATE[session_id]["shown_recipe_ids"] = list(already_shown)
+        USER_STATE[session_id].setdefault("shown_recipe_ids", [])
+        USER_STATE[session_id]["shown_recipe_ids"] += [r["id"] for r in new_recipes if r["id"] not in USER_STATE[session_id]["shown_recipe_ids"]]
         return jsonify({"recipes": new_recipes})
 
     except Exception as e:
@@ -167,6 +169,7 @@ def handle_more_recipes(session_id):
 
         ingredients = user_data["ingredients"]
         already_shown = set(user_data.get("shown_recipe_ids", []))
+        logging.info(f"[handle_more_recipes] Already shown for {session_id}: {already_shown}")
 
         url = "https://api.spoonacular.com/recipes/findByIngredients"
         params = {
@@ -199,8 +202,11 @@ def handle_more_recipes(session_id):
                         break
             attempts += 1
 
-        USER_STATE[session_id]["shown_recipe_ids"] = list(already_shown)
+        USER_STATE[session_id].setdefault("shown_recipe_ids", [])
+        USER_STATE[session_id]["shown_recipe_ids"] += [r["id"] for r in new_recipes if r["id"] not in USER_STATE[session_id]["shown_recipe_ids"]]
         recipe_ids = [r["id"] for r in new_recipes]
+        if not new_recipes:
+            return jsonify({"reply": "I’ve already shown you all the matching recipes. Try new ingredients!", "recipes": []})
         return jsonify({"reply": f"Here are more recipe suggestions! (IDs: {recipe_ids})", "recipes": new_recipes})
 
     except Exception as e:
