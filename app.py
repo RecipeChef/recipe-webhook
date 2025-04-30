@@ -57,7 +57,7 @@ def chat():
 def analyze_image():
     try:
         UNWANTED_WORDS = {"aliment", "micronutrient", "pasture", "comestible"}
-        CONFIDENCE_THRESHOLD = 0.5
+        CONFIDENCE_THRESHOLD = 0.8
 
         image_file = request.files['image'] #changed
         image = Image.open(image_file.stream).convert("RGB")
