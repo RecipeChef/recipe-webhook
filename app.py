@@ -59,7 +59,7 @@ def analyze_image():
         UNWANTED_WORDS = {"aliment", "micronutrient", "pasture", "comestible"}
         CONFIDENCE_THRESHOLD = 0.5
 
-        image_file = request.files['file']
+        image_file = request.files['image'] #changed
         image = Image.open(image_file.stream).convert("RGB")
         resized = image.resize((300, 300))
         logging.info(f"Image resized to: {resized.size}")
