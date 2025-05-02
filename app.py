@@ -57,7 +57,7 @@ def chat():
 def analyze_image():
     try:
         UNWANTED_WORDS = {"aliment", "micronutrient", "pasture", "comestible"}
-        CONFIDENCE_THRESHOLD = 0.8
+        CONFIDENCE_THRESHOLD = 0.6
 
         image_file = request.files['image'] #changed
         image = Image.open(image_file.stream).convert("RGB")
@@ -134,7 +134,7 @@ def recipe_suggestions():
         new_recipes = []
         attempts = 0
 
-        while len(new_recipes) < 5 and attempts < 5:
+        while len(new_recipes) < 10 and attempts < 10: #changed to 10 both from 5
             response = requests.get(url, params=params)
             recipes_data = response.json()
 
@@ -148,7 +148,7 @@ def recipe_suggestions():
                         "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
                     })
                     already_shown.add(recipe["id"])
-                    if len(new_recipes) == 5:
+                    if len(new_recipes) == 10: #changed to 10 from 5
                         break
             attempts += 1
 
@@ -185,7 +185,7 @@ def handle_more_recipes(session_id):
         new_recipes = []
         attempts = 0
 
-        while len(new_recipes) < 5 and attempts < 5:
+        while len(new_recipes) < 10 and attempts < 10: #changed to 10 from 5 both
             response = requests.get(url, params=params)
             recipes_data = response.json()
 
@@ -199,7 +199,7 @@ def handle_more_recipes(session_id):
                         "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
                     })
                     already_shown.add(recipe["id"])
-                    if len(new_recipes) == 5:
+                    if len(new_recipes) == 10: #changed to 10 from 5
                         break
             attempts += 1
 
