@@ -124,8 +124,8 @@ def recipe_suggestions():
         url = "https://api.spoonacular.com/recipes/findByIngredients"
         params = {
             "ingredients": ",".join(ingredients),
-            "number": 100, #changed to 30 from 15
-            "ranking": 1,
+            "number": 50, #changed to 30 from 15
+            "ranking": 2, #1
             "ignorePantry": True,
             "sort": "random", #"sort": "random",
             "apiKey": SPOONACULAR_API_KEY
@@ -147,10 +147,10 @@ def recipe_suggestions():
                         "id": recipe["id"],
                         "title": recipe["title"],
                         "image": recipe["image"],
-                        # "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
-                        "usedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("usedIngredients", [])], #UsedIngredients id's will be sent to Flutter
-                        # "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
-                        "missedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("missedIngredients", [])] #MissedIngredients id's will be sent to Flutter
+                        "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
+                        # "usedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("usedIngredients", [])], #UsedIngredients id's will be sent to Flutter
+                        "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
+                        # "missedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("missedIngredients", [])] #MissedIngredients id's will be sent to Flutter
                     })
                     already_shown.add(recipe["id"])
                     if len(new_recipes) == 10: #changed from 5 to 10
@@ -180,8 +180,8 @@ def handle_more_recipes(session_id):
         url = "https://api.spoonacular.com/recipes/findByIngredients"
         params = {
             "ingredients": ",".join(ingredients),
-            "number": 100, #changed to 40 from 15
-            "ranking": 1,
+            "number": 50, #changed to 40 from 15
+            "ranking": 2, #1
             "ignorePantry": True,
             "sort": "random", # "sort": "random"
             "apiKey": SPOONACULAR_API_KEY
@@ -203,10 +203,10 @@ def handle_more_recipes(session_id):
                         "id": recipe["id"],
                         "title": recipe["title"],
                         "image": recipe["image"],
-                        # "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
-                        "usedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("usedIngredients", [])],
-                        # "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
-                        "missedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("missedIngredients", [])]
+                        "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
+                        # "usedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("usedIngredients", [])],
+                        "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
+                        # "missedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("missedIngredients", [])]
                     })
                     already_shown.add(recipe["id"])
                     if len(new_recipes) == 10: #changed from 5 to 10
