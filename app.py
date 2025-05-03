@@ -127,7 +127,7 @@ def recipe_suggestions():
             "number": 100, #changed to 30 from 15
             "ranking": 1,
             "ignorePantry": True,
-            # "sort": "random",
+            "sort": "random", #"sort": "random",
             "apiKey": SPOONACULAR_API_KEY
         }
 
@@ -137,9 +137,9 @@ def recipe_suggestions():
         while len(new_recipes) < 10 and attempts < 5: #changed from 5 to 10
             response = requests.get(url, params=params)
             recipes_data = response.json()
-            recipes_data.sort(
-                key=lambda r: (-len(r.get("usedIngredients", [])), len(r.get("missedIngredients", [])))
-            )
+            # recipes_data.sort(
+            #     key=lambda r: (-len(r.get("usedIngredients", [])), len(r.get("missedIngredients", [])))
+            # )
 
             for recipe in recipes_data:
                 if recipe["id"] not in already_shown:
@@ -183,7 +183,7 @@ def handle_more_recipes(session_id):
             "number": 100, #changed to 40 from 15
             "ranking": 1,
             "ignorePantry": True,
-            # "sort": "random",
+            "sort": "random", # "sort": "random"
             "apiKey": SPOONACULAR_API_KEY
         }
 
@@ -193,9 +193,9 @@ def handle_more_recipes(session_id):
         while len(new_recipes) < 10 and attempts < 5: #changed from 5 to 10. Besides it attempts to find 5 times best-matching recipes
             response = requests.get(url, params=params)
             recipes_data = response.json()
-            recipes_data.sort(
-                key=lambda r: (-len(r.get("usedIngredients", [])), len(r.get("missedIngredients", [])))
-            ) #Added for less missing ingredients and more used ingredients
+            # recipes_data.sort(
+            #     key=lambda r: (-len(r.get("usedIngredients", [])), len(r.get("missedIngredients", [])))
+            # ) #Added for less missing ingredients and more used ingredients
 
             for recipe in recipes_data:
                 if recipe["id"] not in already_shown:
