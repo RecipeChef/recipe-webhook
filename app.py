@@ -116,16 +116,23 @@ def recipe_suggestions():
             return jsonify({"error": "No ingredients provided."}), 400
 
         if session_id not in USER_STATE:
-            USER_STATE[session_id] = {"shown_recipe_ids": []}
+            USER_STATE[session_id] = {"shown_recipe_ids": [],
+                                     "ingredients": ingredients, # added 04/05/2025
+                                     "request_count": 0} # added 04/05/2025
 
         already_shown = set(USER_STATE[session_id].get("shown_recipe_ids", []))
         logging.info(f"[recipe-suggestions] Already shown for {session_id}: {already_shown}")
 
         url = "https://api.spoonacular.com/recipes/findByIngredients"
+        
+        request_count = USER_STATE[session_id].get("request_count", 0) # added 04/05/2025
+        ranking = 2 if request_count < 3 else 1 # added 04/05/2025
+        USER_STATE[session_id]["request_count"] = request_count + 1 # added 04/05/2025
+
         params = {
             "ingredients": ",".join(ingredients),
-            "number": 50, #changed to 30 from 15
-            "ranking": 2, #1
+            "number": 60, #changed to 60 from 15
+            "ranking": ranking, # added 04/05/2025
             "ignorePantry": True,
             "sort": "random", #"sort": "random",
             "apiKey": SPOONACULAR_API_KEY
@@ -177,11 +184,15 @@ def handle_more_recipes(session_id):
         already_shown = set(user_data.get("shown_recipe_ids", []))
         logging.info(f"[handle_more_recipes] Already shown for {session_id}: {already_shown}")
 
+        request_count = user_data.get("request_count", 0) # added 04/05/2025
+        ranking = 2 if request_count < 3 else 1 # added 04/05/2025
+        user_data["request_count"] = request_count + 1 # added 04/05/2025
+
         url = "https://api.spoonacular.com/recipes/findByIngredients"
         params = {
             "ingredients": ",".join(ingredients),
-            "number": 50, #changed to 40 from 15
-            "ranking": 2, #1
+            "number": 60, #changed to 50 from 15
+            "ranking": ranking, # added 04/05/2025
             "ignorePantry": True,
             "sort": "random", # "sort": "random"
             "apiKey": SPOONACULAR_API_KEY
