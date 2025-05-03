@@ -69,7 +69,7 @@ def analyze_image():
         image_bytes = buffered.getvalue()
 
         request_clarifai = service_pb2.PostModelOutputsRequest(
-            model_id="food-item-recognition", #changed from food-item-v1-recognition to food-item-recognition
+            model_id="food-item-v1-recognition", #changed from food-item-v1-recognition to food-item-recognition
             inputs=[
                 resources_pb2.Input(
                     data=resources_pb2.Data(
