@@ -125,7 +125,7 @@ def recipe_suggestions():
         params = {
             "ingredients": ",".join(ingredients),
             "number": 15,
-            "ranking": 1,
+            "ranking": 2, #1
             "ignorePantry": True,
             "sort": "random",
             "apiKey": SPOONACULAR_API_KEY
@@ -176,7 +176,7 @@ def handle_more_recipes(session_id):
         params = {
             "ingredients": ",".join(ingredients),
             "number": 15,
-            "ranking": 1,
+            "ranking": 2, #1
             "ignorePantry": True,
             "sort": "random",
             "apiKey": SPOONACULAR_API_KEY
