@@ -95,7 +95,7 @@ def analyze_image():
         USER_STATE["user-session-id"] = {
             "ingredients": ingredients,
             "shown_recipe_ids": [],
-            "chosen_recipe": None
+            "chosen_recipe": None #It will be removed later
         }
 
         return jsonify({"ingredients": ingredients})
@@ -124,19 +124,22 @@ def recipe_suggestions():
         url = "https://api.spoonacular.com/recipes/findByIngredients"
         params = {
             "ingredients": ",".join(ingredients),
-            "number": 15,
+            "number": 40, #changed to 30 from 15
             "ranking": 1,
             "ignorePantry": True,
-            "sort": "random",
+            # "sort": "random",
             "apiKey": SPOONACULAR_API_KEY
         }
 
         new_recipes = []
         attempts = 0
 
-        while len(new_recipes) < 5 and attempts < 5: #10
+        while len(new_recipes) < 10 and attempts < 5: #changed from 5 to 10
             response = requests.get(url, params=params)
             recipes_data = response.json()
+            recipes_data.sort(
+                key=lambda r: (-len(r.get("usedIngredients", [])), len(r.get("missedIngredients", [])))
+            )
 
             for recipe in recipes_data:
                 if recipe["id"] not in already_shown:
@@ -144,11 +147,13 @@ def recipe_suggestions():
                         "id": recipe["id"],
                         "title": recipe["title"],
                         "image": recipe["image"],
-                        "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
-                        "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
+                        # "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
+                        "usedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("usedIngredients", [])], #UsedIngredients id's will be sent to Flutter
+                        # "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
+                        "missedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("missedIngredients", [])] #MissedIngredients id's will be sent to Flutter
                     })
                     already_shown.add(recipe["id"])
-                    if len(new_recipes) == 5: #10
+                    if len(new_recipes) == 10: #changed from 5 to 10
                         break
             attempts += 1
 
@@ -175,19 +180,22 @@ def handle_more_recipes(session_id):
         url = "https://api.spoonacular.com/recipes/findByIngredients"
         params = {
             "ingredients": ",".join(ingredients),
-            "number": 15,
+            "number": 40, #changed to 40 from 15
             "ranking": 1,
             "ignorePantry": True,
-            "sort": "random",
+            # "sort": "random",
             "apiKey": SPOONACULAR_API_KEY
         }
 
         new_recipes = []
         attempts = 0
 
-        while len(new_recipes) < 5 and attempts < 5: #10
+        while len(new_recipes) < 10 and attempts < 5: #changed from 5 to 10. Besides it attempts to find 5 times best-matching recipes
             response = requests.get(url, params=params)
             recipes_data = response.json()
+            recipes_data.sort(
+                key=lambda r: (-len(r.get("usedIngredients", [])), len(r.get("missedIngredients", [])))
+            ) #Added for less missing ingredients and more used ingredients
 
             for recipe in recipes_data:
                 if recipe["id"] not in already_shown:
@@ -195,11 +203,13 @@ def handle_more_recipes(session_id):
                         "id": recipe["id"],
                         "title": recipe["title"],
                         "image": recipe["image"],
-                        "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
-                        "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
+                        # "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
+                        "usedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("usedIngredients", [])],
+                        # "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
+                        "missedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("missedIngredients", [])]
                     })
                     already_shown.add(recipe["id"])
-                    if len(new_recipes) == 5: #10
+                    if len(new_recipes) == 10: #changed from 5 to 10
                         break
             attempts += 1
 
