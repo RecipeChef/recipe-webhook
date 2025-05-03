@@ -50,6 +50,15 @@ def chat():
     if intent_name == "MoreRecipesIntent":
         return handle_more_recipes(session_id)
 
+    # if intent_name == "TextIngredientsIntent":
+    #     ingredients = [e.value.lower() for e in response.query_result.parameters.fields.get("ingredient_list").list_value.values]
+    #     USER_STATE[session_id] = {
+    #         "ingredients": ingredients,
+    #         "shown_recipe_ids": [],
+    #         "request_count": 0
+    #     }
+    #     return recipe_suggestions_from_chat(session_id, ingredients)
+
     return jsonify({'reply': response.query_result.fulfillment_text})
 
 # === /analyze-image ===
