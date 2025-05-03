@@ -59,7 +59,7 @@ def analyze_image():
         UNWANTED_WORDS = {"aliment", "micronutrient", "pasture", "comestible"}
         CONFIDENCE_THRESHOLD = 0.6
 
-        image_file = request.files['image'] #changed
+        image_file = request.files['image'] #changed from file to image
         image = Image.open(image_file.stream).convert("RGB")
         resized = image.resize((300, 300))
         logging.info(f"Image resized to: {resized.size}")
@@ -69,7 +69,7 @@ def analyze_image():
         image_bytes = buffered.getvalue()
 
         request_clarifai = service_pb2.PostModelOutputsRequest(
-            model_id="food-item-v1-recognition",
+            model_id="food-item-recognition", #changed from food-item-v1-recognition to food-item-recognition
             inputs=[
                 resources_pb2.Input(
                     data=resources_pb2.Data(
