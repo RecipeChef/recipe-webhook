@@ -71,9 +71,9 @@ def chat():
             "request_count": 0
         }
         # Reuse /recipe-suggestions logic
-    request_data = {"ingredients": ingredients, "session_id": session_id}
-    with app.test_request_context('/recipe-suggestions', method='POST', json=request_data):
-        return recipe_suggestions()
+        request_data = {"ingredients": ingredients, "session_id": session_id}
+        with app.test_request_context('/recipe-suggestions', method='POST', json=request_data):
+            return recipe_suggestions()
     else:
         return jsonify({'reply': body['queryResult']['fulfillmentText']})
     # return jsonify({'reply': response.query_result.fulfillment_text})
