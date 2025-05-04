@@ -51,11 +51,15 @@ def chat():
         return handle_more_recipes(session_id)
 
     elif intent_name == "TextIngredientsIntent":
-        ingredients = [
-            e.string_value.lower()
-            for e in response.query_result.parameters["ingredient_list"].list_value.values
-            # for e in response.query_result.parameters.fields.get("ingredient_list").list_value.values
+        ingredient_field = response.query_result.parameters.get("ingredient_list")
+        if ingredient_field and ingredient_field.list_value:
+            ingredients = [
+                e.string_value.lower()
+                for e in ingredient_field.list_value.values
             ]
+        else:
+            ingredients = []
+            
         USER_STATE[session_id] = {
             "ingredients": ingredients,
             "shown_recipe_ids": [],
