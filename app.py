@@ -53,7 +53,8 @@ def chat():
     elif intent_name == "TextIngredientsIntent":
         ingredients = [
             e.string_value.lower()
-            for e in response.query_result.parameters.fields.get("ingredient_list").list_value.values
+            for e in response.query_result.parameters["ingredient_list"].list_value.values
+            # for e in response.query_result.parameters.fields.get("ingredient_list").list_value.values
             ]
         USER_STATE[session_id] = {
             "ingredients": ingredients,
