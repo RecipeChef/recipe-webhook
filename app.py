@@ -57,14 +57,16 @@ def chat():
         return handle_more_recipes(session_id)
 
     elif intent_name == "TextIngredientsIntent":
-        parameters = response.query_result.parameters
         ingredients = []
+        param_map = response.query_result.parameters
 
-        if "ingredients" in parameters:
-            raw_ingredients = parameters["ingredients"]
-            if hasattr(raw_ingredients, 'list_value'):
-                ingredients = [v.string_value.lower() for v in raw_ingredients.list_value.values]
+        if param_map and "ingredients" in param_map:
+            ingredient_field = param_map["ingredients"]
+            if hasattr(ingredient_field, 'list_value') and ingredient_field.list_value:
+                ingredients = [v.string_value.lower() for v in ingredient_field.list_value.values]
+            
         logging.info(f"[chat] Extracted ingredients from intent: {ingredients}")
+        
         USER_STATE[session_id] = {
             "ingredients": ingredients,
             "shown_recipe_ids": [],
