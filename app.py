@@ -57,21 +57,23 @@ def chat():
         return handle_more_recipes(session_id)
 
     elif intent_name == "TextIngredientsIntent":
-        ingredient_field = parameters.get("ingredient_list")
-        if ingredient_field:
-            ingredients = [item.lower() for item in ingredient_field]
-        else:
-            ingredients = []
-            
+        parameters = response.query_result.parameters
+        ingredients = []
+
+        if "ingredients" in parameters:
+            raw_ingredients = parameters["ingredients"]
+            if hasattr(raw_ingredients, 'list_value'):
+                ingredients = [v.string_value.lower() for v in raw_ingredients.list_value.values]
+        logging.info(f"[chat] Extracted ingredients from intent: {ingredients}")
         USER_STATE[session_id] = {
             "ingredients": ingredients,
             "shown_recipe_ids": [],
             "request_count": 0
         }
-        # Manually call recipe_suggestions logic
-        request_data = {"ingredients": ingredients, "session_id": session_id}
-        with app.test_request_context('/recipe-suggestions', method='POST', json=request_data):
-            return recipe_suggestions()
+        # Reuse /recipe-suggestions logic
+    request_data = {"ingredients": ingredients, "session_id": session_id}
+    with app.test_request_context('/recipe-suggestions', method='POST', json=request_data):
+        return recipe_suggestions()
     else:
         return jsonify({'reply': body['queryResult']['fulfillmentText']})
     # return jsonify({'reply': response.query_result.fulfillment_text})
