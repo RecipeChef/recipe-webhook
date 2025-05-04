@@ -37,21 +37,21 @@ USER_STATE = {}
 # === /chat ===
 @app.route('/chat', methods=['POST'])
 def chat():
-    # user_message = request.json.get('message')
-    # session_id = "user-session-id"
-
-    # session = dialogflow_session_client.session_path(DIALOGFLOW_PROJECT_ID, session_id)
-    # text_input = dialogflow.TextInput(text=user_message, language_code="en")
-    # query_input = dialogflow.QueryInput(text=text_input)
-    # response = dialogflow_session_client.detect_intent(session=session, query_input=query_input)
-
-    # intent_name = response.query_result.intent.display_name
-
-    body = request.json
+    user_message = request.json.get('message')
     session_id = "user-session-id"
 
-    intent_name = body['queryResult']['intent']['displayName']
-    parameters = body['queryResult']['parameters']
+    session = dialogflow_session_client.session_path(DIALOGFLOW_PROJECT_ID, session_id)
+    text_input = dialogflow.TextInput(text=user_message, language_code="en")
+    query_input = dialogflow.QueryInput(text=text_input)
+    response = dialogflow_session_client.detect_intent(session=session, query_input=query_input)
+
+    intent_name = response.query_result.intent.display_name
+
+    # body = request.json
+    # session_id = "user-session-id"
+
+    # intent_name = body['queryResult']['intent']['displayName']
+    # parameters = body['queryResult']['parameters']
 
     if intent_name == "MoreRecipesIntent":
         return handle_more_recipes(session_id)
@@ -74,9 +74,9 @@ def chat():
         request_data = {"ingredients": ingredients, "session_id": session_id}
         with app.test_request_context('/recipe-suggestions', method='POST', json=request_data):
             return recipe_suggestions()
-    else:
-        return jsonify({'reply': body['queryResult']['fulfillmentText']})
-    # return jsonify({'reply': response.query_result.fulfillment_text})
+    # else:
+    # return jsonify({'reply': body['queryResult']['fulfillmentText']})
+    return jsonify({'reply': response.query_result.fulfillment_text})
     
 
 # === /analyze-image ===
