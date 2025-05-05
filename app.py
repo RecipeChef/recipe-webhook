@@ -47,25 +47,17 @@ def chat():
 
     intent_name = response.query_result.intent.display_name
 
-    # body = request.json
-    # session_id = "user-session-id"
-
-    # intent_name = body['queryResult']['intent']['displayName']
-    # parameters = body['queryResult']['parameters']
-
     if intent_name == "MoreRecipesIntent":
         return handle_more_recipes(session_id)
 
     elif intent_name == "TextIngredientsIntent":
-        ingredients = []
-        param_map = response.query_result.parameters
+        # Extract ingredients from the raw message text
+        user_message_lower = user_message.lower()
 
-        if param_map and "ingredients" in param_map:
-            ingredient_field = param_map["ingredients"]
-            if hasattr(ingredient_field, 'list_value') and ingredient_field.list_value:
-                ingredients = [v.string_value.lower() for v in ingredient_field.list_value.values]
-            
-        logging.info(f"[chat] Extracted ingredients from intent: {ingredients}")
+        # Example: Extract comma-separated words
+        ingredients = [i.strip() for i in user_message_lower.replace("and", ",").split(",") if i.strip()]
+    
+        logging.info(f"[chat] Parsed ingredients from text: {ingredients}")
         
         USER_STATE[session_id] = {
             "ingredients": ingredients,
