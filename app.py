@@ -84,6 +84,37 @@ def chat():
         request_data = {"ingredients": ingredients, "session_id": session_id}
         with app.test_request_context('/recipe-suggestions', method='POST', json=request_data):
             return recipe_suggestions()
+            
+    elif intent_name == "WhatCanICookTodayIntent":
+        user_id = session_id  # Or extract from request if you support real user IDs
+        recipe_ids = get_user_recipe_ids(user_id)
+
+        if not recipe_ids:
+            return jsonify({"reply": "You have no favorite or planned recipes to base suggestions on."})
+        collected_recipes = []
+        seen_ids = set()
+
+        for rid in recipe_ids:
+            url = f"https://api.spoonacular.com/recipes/{rid}/similar"
+            params = {"number": 5, "apiKey": SPOONACULAR_API_KEY}
+            resp = requests.get(url, params=params)
+            if resp.status_code != 200:
+                continue
+            for item in resp.json():
+                if item["id"] not in seen_ids:
+                    collected_recipes.append({
+                        "id": item["id"],
+                        "title": item["title"],
+                        "image": f"https://spoonacular.com/recipeImages/{item['id']}-312x231.jpg"
+                    })
+                    seen_ids.add(item["id"])
+                    if len(collected_recipes) == 10:
+                        break
+            if len(collected_recipes) == 10:
+                break
+    
+        return jsonify({"reply": "Here are some ideas based on your taste!", "recipes": collected_recipes})
+        
     # else:
     # return jsonify({'reply': body['queryResult']['fulfillmentText']})
     return jsonify({'reply': response.query_result.fulfillment_text})
@@ -312,6 +343,37 @@ def get_user_recipe_ids(user_id):
     except Exception as e:
         logging.exception("Failed to fetch Firebase recipe IDs")
         return []
+        
+def recommend_from_favorites(session_id):
+    user_id = session_id  # Assuming session_id is the Firebase user ID
+    recipe_ids = get_user_recipe_ids(user_id)
+
+    if not recipe_ids:
+        return jsonify({"reply": "You have no favorite or planned recipes to base suggestions on."})
+    
+    collected_recipes = []
+    seen_ids = set()
+
+    for rid in recipe_ids:
+        url = f"https://api.spoonacular.com/recipes/{rid}/similar"
+        params = {"number": 5, "apiKey": SPOONACULAR_API_KEY}
+        resp = requests.get(url, params=params)
+        if resp.status_code != 200:
+            continue
+        for item in resp.json():
+            if item["id"] not in seen_ids:
+                collected_recipes.append({
+                    "id": item["id"],
+                    "title": item["title"],
+                    "image": f"https://spoonacular.com/recipeImages/{item['id']}-312x231.jpg"
+                })
+                seen_ids.add(item["id"])
+                if len(collected_recipes) == 10:
+                    break
+                if len(collected_recipes) == 10:
+                    break
+                    
+    return jsonify({"reply": "Here are some ideas based on your taste!", "recipes": collected_recipes})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
