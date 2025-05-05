@@ -54,6 +54,11 @@ def chat():
         # Extract ingredients from the raw message text
         user_message_lower = user_message.lower()
 
+        # Clean common phrases
+        for prefix in ["what can i cook with", "what can i make with", "how can i cook with"]:
+            if user_message_lower.startswith(prefix):
+                user_message_lower = user_message_lower.replace(prefix, "")
+
         # Example: Extract comma-separated words
         ingredients = [i.strip() for i in user_message_lower.replace("and", ",").split(",") if i.strip()]
     
