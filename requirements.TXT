@@ -5,3 +5,4 @@ Pillow
 google-cloud-dialogflow
 google-auth
 google-generativeai
+firebase-admin
