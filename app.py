@@ -38,6 +38,10 @@ USER_STATE = {}
 @app.route('/chat', methods=['POST'])
 def chat():
     user_message = request.json.get('message')
+    
+    if not user_message:
+        return jsonify({"error": "Missing 'message' field in request"}), 400
+        
     session_id = "user-session-id"
 
     session = dialogflow_session_client.session_path(DIALOGFLOW_PROJECT_ID, session_id)
