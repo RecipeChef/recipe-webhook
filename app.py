@@ -10,6 +10,8 @@ from clarifai_grpc.channel.clarifai_channel import ClarifaiChannel
 from clarifai_grpc.grpc.api import service_pb2, service_pb2_grpc
 from clarifai_grpc.grpc.api import resources_pb2
 from clarifai_grpc.grpc.api.status import status_code_pb2
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 # App setup
 app = Flask(__name__)
@@ -33,6 +35,11 @@ SPOONACULAR_API_KEY = "b97364cb57314c0fb18b8d7e93d7e5fc"
 
 # === 🌟 In-memory user session state ===
 USER_STATE = {}
+
+# === Firebase Setup ===
+cred = credentials.Certificate("firebase_key.json")
+firebase_admin.initialize_app(cred)
+db = firestore.client()
 
 # === /chat ===
 @app.route('/chat', methods=['POST'])
@@ -287,6 +294,24 @@ def handle_more_recipes(session_id):
     except Exception as e:
         logging.exception("More recipe fetch failed")
         return jsonify({"error": str(e)}), 500
+
+def get_user_recipe_ids(user_id):
+    try:
+        user_doc = db.collection("users").document(user_id)
+        
+        favorites_doc = user_doc.collection("data").document("favorites").get()
+        planner_doc = user_doc.collection("data").document("meal_planner").get()
+
+        favorite_ids = favorites_doc.to_dict().get("recipe_ids", []) if favorites_doc.exists else []
+        planner_ids = planner_doc.to_dict().get("recipe_ids", []) if planner_doc.exists else []
+
+        all_ids = list(set(favorite_ids + planner_ids))  # deduplicate
+        logging.info(f"[Firebase] User {user_id} recipes from Firebase: {all_ids}")
+        return all_ids
+
+    except Exception as e:
+        logging.exception("Failed to fetch Firebase recipe IDs")
+        return []
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
