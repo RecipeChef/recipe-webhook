@@ -37,7 +37,7 @@ SPOONACULAR_API_KEY = "b97364cb57314c0fb18b8d7e93d7e5fc"
 USER_STATE = {}
 
 # === Firebase Setup ===
-cred = credentials.Certificate("firebase_key.json")
+cred = credentials.Certificate("/etc/secrets/firebase_key.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
