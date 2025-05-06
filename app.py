@@ -208,14 +208,15 @@ def recipe_suggestions():
         # logging.info(f"[recipe-suggestions] Ranking value: {ranking}") #added to see on render.Made comment line 06/05/2025
         # USER_STATE[session_id]["request_count"] = request_count + 1 # added 04/05/2025. Made comment line 06/05/2025
 
-        ranking = data.get('ranking')
-        if ranking is None:
+        ranking = data.get('ranking') #Added this lines instead of commented lines till
+        if ranking is not None:
+            ranking = int(ranking)
+        else:
             request_count = USER_STATE[session_id].get("request_count", 0)
             ranking = 2 if request_count < 3 else 1
             USER_STATE[session_id]["request_count"] = request_count + 1
-        else:
-            ranking = int(ranking)
-        logging.info(f"[recipe-suggestions] Ranking value: {ranking}")
+            
+        logging.info(f"[recipe-suggestions] Ranking value: {ranking}") #here
 
         params = {
             "ingredients": ",".join(ingredients),
@@ -232,9 +233,9 @@ def recipe_suggestions():
         while len(new_recipes) < 10 and attempts < 5: #changed from 5 to 10
             response = requests.get(url, params=params)
             recipes_data = response.json()
-            # recipes_data.sort(
+            # recipes_data.sort( #This will be deleted
             #     key=lambda r: (-len(r.get("usedIngredients", [])), len(r.get("missedIngredients", [])))
-            # )
+            # ) #.
 
             for recipe in recipes_data:
                 if recipe["id"] not in already_shown:
@@ -281,7 +282,13 @@ def handle_more_recipes(session_id):
         logging.info(f"[handle_more_recipes] Already shown for {session_id}: {already_shown}")
 
         request_count = user_data.get("request_count", 0) # added 04/05/2025
-        ranking = 2 if request_count < 3 else 1 # added 04/05/2025
+        # ranking = 2 if request_count < 3 else 1 # added 04/05/2025. Made comment line 06/05/2025
+        requested_ranking = request.json.get("ranking") #Added this instead of commented lines till
+        if requested_ranking in [1, 2]:
+            ranking = requested_ranking
+        else:
+            ranking = 2 if request_count < 3 else 1 #here
+
         logging.info(f"[handle_more_recipes] Ranking value: {ranking}") #added to see on render
         user_data["request_count"] = request_count + 1 # added 04/05/2025
 
