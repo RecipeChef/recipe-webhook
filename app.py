@@ -49,7 +49,9 @@ def chat():
     if not user_message:
         return jsonify({"error": "Missing 'message' field in request"}), 400
         
-    session_id = "user-session-id"
+    # session_id = "user-session-id"
+    session_id = request.json.get("session_id", "user-session-id")
+
 
     session = dialogflow_session_client.session_path(DIALOGFLOW_PROJECT_ID, session_id)
     text_input = dialogflow.TextInput(text=user_message, language_code="en")
