@@ -328,13 +328,22 @@ def handle_more_recipes(session_id):
 
 def get_user_recipe_ids(user_id):
     try:
-        user_doc = db.collection("users").document(user_id)
-        
-        favorites_doc = user_doc.collection("data").document("favorites").get()
-        planner_doc = user_doc.collection("data").document("meal_planner").get()
+        favorite_ids = []
+        planner_ids = []
 
-        favorite_ids = favorites_doc.to_dict().get("recipe_ids", []) if favorites_doc.exists else []
-        planner_ids = planner_doc.to_dict().get("recipe_ids", []) if planner_doc.exists else []
+        # Fetch favorites: document IDs are the recipe IDs
+        favorites_ref = db.collection("users").document(user_id).collection("favorites")
+        favorites_docs = favorites_ref.stream()
+        favorite_ids = [doc.id for doc in favorites_docs]
+
+        # Fetch meal planner: each document has a field 'recipe_id'
+        planner_ref = db.collection("users").document(user_id).collection("mealplanner")
+        planner_docs = planner_ref.stream()
+        for doc in planner_docs:
+            data = doc.to_dict()
+            recipe_id = data.get("recipe_id")
+            if recipe_id:
+                planner_ids.append(recipe_id)
 
         all_ids = list(set(favorite_ids + planner_ids))  # deduplicate
         logging.info(f"[Firebase] User {user_id} recipes from Firebase: {all_ids}")
