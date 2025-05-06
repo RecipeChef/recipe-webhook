@@ -90,6 +90,11 @@ def chat():
     elif intent_name == "WhatCanICookTodayIntent":
         user_id = session_id  # Or extract from request if you support real user IDs
         recipe_ids = get_user_recipe_ids(user_id)
+        USER_STATE[session_id] = {
+            "base_recipe_ids": recipe_ids,
+            "shown_similar_ids": []
+        }
+
 
         if not recipe_ids:
             return jsonify({"reply": "You have no favorite or planned recipes to base suggestions on."})
@@ -104,6 +109,7 @@ def chat():
                 continue
             for item in resp.json():
                 if item["id"] not in seen_ids:
+                    USER_STATE[session_id]["shown_similar_ids"].append(item["id"])
                     collected_recipes.append({
                         "id": item["id"],
                         "title": item["title"],
@@ -264,6 +270,12 @@ def handle_more_recipes(session_id):
         if not user_data or not user_data.get("ingredients"):
             return jsonify({"reply": "Sorry, I couldn't find your ingredients. Please send a new image."})
 
+        if "base_recipe_ids" in user_data:
+            similar_recipes = get_more_similar_recipes(session_id)
+            if not similar_recipes:
+                return jsonify({"reply": "I’ve already shown you all the similar recipes I could find!"})
+            return jsonify({"reply": "Here are more ideas based on your taste!", "recipes": similar_recipes})
+        
         ingredients = user_data["ingredients"]
         logging.info(f"[handle_more_recipes] Session: {session_id}") #added to see on render
         logging.info(f"[handle_more_recipes] Ingredients used: {ingredients}") # added to see on render
@@ -385,6 +397,39 @@ def recommend_from_favorites(session_id):
                     break
                     
     return jsonify({"reply": "Here are some ideas based on your taste!", "recipes": collected_recipes})
+    
+def get_more_similar_recipes(session_id):
+    user_data = USER_STATE.get(session_id)
+    if not user_data or "base_recipe_ids" not in user_data:
+        return []
+
+    collected_recipes = []
+    seen_ids = set(user_data.get("shown_similar_ids", []))
+
+    for rid in user_data["base_recipe_ids"]:
+        url = f"https://api.spoonacular.com/recipes/{rid}/similar"
+        params = {"number": 5, "apiKey": SPOONACULAR_API_KEY}
+        resp = requests.get(url, params=params)
+        if resp.status_code != 200:
+            continue
+
+        for item in resp.json():
+            if item["id"] not in seen_ids:
+                collected_recipes.append({
+                    "id": item["id"],
+                    "title": item["title"],
+                    "image": f"https://spoonacular.com/recipeImages/{item['id']}-312x231.jpg"
+                })
+                seen_ids.add(item["id"])
+                user_data["shown_similar_ids"].append(item["id"])
+
+                if len(collected_recipes) == 10:
+                    break
+        if len(collected_recipes) == 10:
+            break
+
+    return collected_recipes
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
