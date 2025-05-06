@@ -208,57 +208,104 @@ def recipe_suggestions():
         # logging.info(f"[recipe-suggestions] Ranking value: {ranking}") #added to see on render.Made comment line 06/05/2025
         # USER_STATE[session_id]["request_count"] = request_count + 1 # added 04/05/2025. Made comment line 06/05/2025
 
-        ranking = data.get('ranking') #Added this lines instead of commented lines till
-        if ranking is not None:
-            ranking = int(ranking)
-        else:
-            request_count = USER_STATE[session_id].get("request_count", 0)
-            ranking = 2 if request_count < 3 else 1
-            USER_STATE[session_id]["request_count"] = request_count + 1
+        # ranking = data.get('ranking') #Added this lines instead of commented lines till. Commented 06/05/2025 in 17.51
+        # if ranking is not None:
+        #     ranking = int(ranking)
+        # else:
+        #     request_count = USER_STATE[session_id].get("request_count", 0)
+        #     ranking = 2 if request_count < 3 else 1
+        #     USER_STATE[session_id]["request_count"] = request_count + 1
             
-        logging.info(f"[recipe-suggestions] Ranking value: {ranking}") #here
+        # logging.info(f"[recipe-suggestions] Ranking value: {ranking}") #here
 
-        params = {
-            "ingredients": ",".join(ingredients),
-            "number": 60, #changed to 60 from 15
-            "ranking": ranking, # added 04/05/2025
-            "ignorePantry": True,
-            "sort": "random", #"sort": "random",
-            "apiKey": SPOONACULAR_API_KEY
-        }
+        # params = {
+        #     "ingredients": ",".join(ingredients),
+        #     "number": 60, #changed to 60 from 15
+        #     "ranking": ranking, # added 04/05/2025
+        #     "ignorePantry": True,
+        #     "sort": "random", #"sort": "random",
+        #     "apiKey": SPOONACULAR_API_KEY
+        # }
 
-        new_recipes = []
-        attempts = 0
+        # new_recipes = []
+        # attempts = 0
 
-        while len(new_recipes) < 10 and attempts < 5: #changed from 5 to 10
-            response = requests.get(url, params=params)
-            recipes_data = response.json()
-            # recipes_data.sort( #This will be deleted
-            #     key=lambda r: (-len(r.get("usedIngredients", [])), len(r.get("missedIngredients", [])))
-            # ) #.
+        # while len(new_recipes) < 10 and attempts < 5: #changed from 5 to 10
+        #     response = requests.get(url, params=params)
+        #     recipes_data = response.json()
+        #     # recipes_data.sort( #This will be deleted
+        #     #     key=lambda r: (-len(r.get("usedIngredients", [])), len(r.get("missedIngredients", [])))
+        #     # ) #.
 
-            for recipe in recipes_data:
-                if recipe["id"] not in already_shown:
-                    new_recipes.append({
-                        "id": recipe["id"],
-                        "title": recipe["title"],
-                        "image": recipe["image"],
-                        # "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
-                        "usedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("usedIngredients", [])], #UsedIngredients id's will be sent to Flutter
-                        # "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
-                        "missedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("missedIngredients", [])] #MissedIngredients id's will be sent to Flutter
-                    })
-                    already_shown.add(recipe["id"])
-                    if len(new_recipes) == 10: #changed from 5 to 10
-                        break
-            attempts += 1
+        #     for recipe in recipes_data:
+        #         if recipe["id"] not in already_shown:
+        #             new_recipes.append({
+        #                 "id": recipe["id"],
+        #                 "title": recipe["title"],
+        #                 "image": recipe["image"],
+        #                 # "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
+        #                 "usedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("usedIngredients", [])], #UsedIngredients id's will be sent to Flutter
+        #                 # "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
+        #                 "missedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("missedIngredients", [])] #MissedIngredients id's will be sent to Flutter
+        #             })
+        #             already_shown.add(recipe["id"])
+        #             if len(new_recipes) == 10: #changed from 5 to 10
+        #                 break
+        #     attempts += 1 #Commented 06/05/2025 in 17.51
+
+        basic_recipes = [] # Added 06/05/2025 in 17.51
+        complex_recipes = []
+        already_shown = set(USER_STATE[session_id].get("shown_recipe_ids", []))
+        
+        for rank_value, storage_key in [(2, "basic_recipes"), (1, "complex_recipes")]:
+            url = "https://api.spoonacular.com/recipes/findByIngredients"
+            params = {
+                "ingredients": ",".join(ingredients),
+                "number": 60,
+                "ranking": rank_value,
+                "ignorePantry": True,
+                "sort": "random",
+                "apiKey": SPOONACULAR_API_KEY
+            }
+        
+            temp_recipes = []
+            attempts = 0
+            while len(temp_recipes) < 10 and attempts < 5:
+                response = requests.get(url, params=params)
+                recipes_data = response.json()
+                for recipe in recipes_data:
+                    if recipe["id"] not in already_shown:
+                        temp_recipes.append({
+                            "id": recipe["id"],
+                            "title": recipe["title"],
+                            "image": recipe["image"],
+                            "usedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("usedIngredients", [])],
+                            "missedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("missedIngredients", [])]
+                        })
+                        already_shown.add(recipe["id"])
+                        if len(temp_recipes) == 10:
+                            break
+                attempts += 1
+        
+            USER_STATE[session_id][storage_key] = temp_recipes # Added 06/05/2025 in 17.51
+        USER_STATE[session_id]["shown_recipe_ids"] += [ # Added 06/05/2025 in 17.51
+            r["id"] for r in basic_recipes + complex_recipes # Added 06/05/2025 in 17.51
+            if r["id"] not in USER_STATE[session_id]["shown_recipe_ids"] # Added 06/05/2025 in 17.51
+        ] # Added 06/05/2025 in 17.51
+
+
 
         USER_STATE[session_id].setdefault("shown_recipe_ids", [])
         USER_STATE[session_id]["shown_recipe_ids"] += [r["id"] for r in new_recipes if r["id"] not in USER_STATE[session_id]["shown_recipe_ids"]]
         
         logging.info(f"[recipe-suggestions] Returned {len(new_recipes)} new recipes") #added to see on render
         logging.info(f"[recipe-suggestions] Recipe IDs: {[r['id'] for r in new_recipes]}") #added to see on render
-        return jsonify({"recipes": new_recipes})
+        # return jsonify({"recipes": new_recipes}) #Commented 06/05/2025 in 17.51
+        return jsonify({
+            "basic_recipes": USER_STATE[session_id].get("basic_recipes", []),
+            "complex_recipes": USER_STATE[session_id].get("complex_recipes", [])
+        })
+
 
     except Exception as e:
         logging.exception("Recipe fetch failed")
@@ -281,16 +328,56 @@ def handle_more_recipes(session_id):
         already_shown = set(user_data.get("shown_recipe_ids", []))
         logging.info(f"[handle_more_recipes] Already shown for {session_id}: {already_shown}")
 
-        request_count = user_data.get("request_count", 0) # added 04/05/2025
+        # request_count = user_data.get("request_count", 0) # added 04/05/2025. Commented 06/05/2025 at 17.37
         # ranking = 2 if request_count < 3 else 1 # added 04/05/2025. Made comment line 06/05/2025
-        requested_ranking = request.json.get("ranking") #Added this instead of commented lines till
-        if requested_ranking in [1, 2]:
-            ranking = requested_ranking
-        else:
-            ranking = 2 if request_count < 3 else 1 #here
+        # requested_ranking = request.json.get("ranking") #Added this instead of commented lines till. Commented 06/05/2025 at 17.37
+        # if requested_ranking in [1, 2]:
+        #     ranking = requested_ranking
+        # else:
+        #     ranking = 2 if request_count < 3 else 1 #here. continue
 
-        logging.info(f"[handle_more_recipes] Ranking value: {ranking}") #added to see on render
-        user_data["request_count"] = request_count + 1 # added 04/05/2025
+        # logging.info(f"[handle_more_recipes] Ranking value: {ranking}") #added to see on render
+        # user_data["request_count"] = request_count + 1 # added 04/05/2025. here
+
+        basic_recipes = []
+        complex_recipes = []
+        
+        for rank_value, storage_key in [(2, "basic_recipes"), (1, "complex_recipes")]:
+            url = "https://api.spoonacular.com/recipes/findByIngredients"
+            params = {
+                "ingredients": ",".join(ingredients),
+                "number": 60,
+                "ranking": rank_value,
+                "ignorePantry": True,
+                "sort": "random",
+                "apiKey": SPOONACULAR_API_KEY
+            }
+            attempts = 0
+            temp_recipes = []
+            while len(temp_recipes) < 10 and attempts < 5:
+                response = requests.get(url, params=params)
+                recipes_data = response.json()
+                for recipe in recipes_data:
+                    if recipe["id"] not in already_shown:
+                        temp_recipes.append({
+                            "id": recipe["id"],
+                            "title": recipe["title"],
+                            "image": recipe["image"],
+                            "usedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("usedIngredients", [])],
+                            "missedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("missedIngredients", [])]
+                        })
+                        already_shown.add(recipe["id"])
+                        if len(temp_recipes) == 10:
+                            break
+                attempts += 1
+        
+            user_data[storage_key] = temp_recipes
+        USER_STATE[session_id].setdefault("shown_recipe_ids", [])
+        USER_STATE[session_id]["shown_recipe_ids"] += [
+            r["id"] for r in basic_recipes + complex_recipes 
+            if r["id"] not in USER_STATE[session_id]["shown_recipe_ids"]
+        ]
+
 
         url = "https://api.spoonacular.com/recipes/findByIngredients"
         params = {
@@ -336,7 +423,13 @@ def handle_more_recipes(session_id):
             
         logging.info(f"[handle_more_recipes] Returned {len(new_recipes)} new recipes") # added to see on render
         logging.info(f"[handle_more_recipes] Recipe IDs: {[r['id'] for r in new_recipes]}") # added to see on render
-        return jsonify({"reply": f"Here are more recipe suggestions! (IDs: {recipe_ids})", "recipes": new_recipes})
+        return jsonify({
+            "reply": "Here are new recipe suggestions for both basic and complex!",
+            "basic_recipes": user_data.get("basic_recipes", []),
+            "complex_recipes": user_data.get("complex_recipes", [])
+        })
+        # return jsonify({"reply": f"Here are more recipe suggestions! (IDs: {recipe_ids})", "recipes": new_recipes}) #Commented 06/05/2025 at 17.46
+
 
     except Exception as e:
         logging.exception("More recipe fetch failed")
