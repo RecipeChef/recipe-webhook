@@ -296,7 +296,13 @@ def recipe_suggestions():
 
 
         USER_STATE[session_id].setdefault("shown_recipe_ids", [])
-        USER_STATE[session_id]["shown_recipe_ids"] += [r["id"] for r in new_recipes if r["id"] not in USER_STATE[session_id]["shown_recipe_ids"]]
+        # USER_STATE[session_id]["shown_recipe_ids"] += [r["id"] for r in new_recipes if r["id"] not in USER_STATE[session_id]["shown_recipe_ids"]] #Commented 06/05/2025 in 17.51
+        USER_STATE[session_id]["shown_recipe_ids"] += [
+            r["id"]
+            for r in USER_STATE[session_id].get("basic_recipes", []) + USER_STATE[session_id].get("complex_recipes", [])
+            if r["id"] not in USER_STATE[session_id]["shown_recipe_ids"]
+        ]
+
         
         logging.info(f"[recipe-suggestions] Returned {len(new_recipes)} new recipes") #added to see on render
         logging.info(f"[recipe-suggestions] Recipe IDs: {[r['id'] for r in new_recipes]}") #added to see on render
