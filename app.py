@@ -37,9 +37,9 @@ SPOONACULAR_API_KEY = "b97364cb57314c0fb18b8d7e93d7e5fc"
 USER_STATE = {}
 
 # === Firebase Setup ===
-cred = credentials.Certificate("firebase_key.json")
-firebase_admin.initialize_app(cred)
-db = firestore.client()
+# cred = credentials.Certificate("firebase_key.json")
+# firebase_admin.initialize_app(cred)
+# db = firestore.client()
 
 # === /chat ===
 @app.route('/chat', methods=['POST'])
