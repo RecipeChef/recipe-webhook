@@ -203,10 +203,19 @@ def recipe_suggestions():
 
         url = "https://api.spoonacular.com/recipes/findByIngredients"
         
-        request_count = USER_STATE[session_id].get("request_count", 0) # added 04/05/2025
-        ranking = 2 if request_count < 3 else 1 # added 04/05/2025
-        logging.info(f"[recipe-suggestions] Ranking value: {ranking}") #added to see on render
-        USER_STATE[session_id]["request_count"] = request_count + 1 # added 04/05/2025
+        # request_count = USER_STATE[session_id].get("request_count", 0) # added 04/05/2025. Made comment line 06/05/2025
+        # ranking = 2 if request_count < 3 else 1 # added 04/05/2025. Made comment line 06/05/2025
+        # logging.info(f"[recipe-suggestions] Ranking value: {ranking}") #added to see on render.Made comment line 06/05/2025
+        # USER_STATE[session_id]["request_count"] = request_count + 1 # added 04/05/2025. Made comment line 06/05/2025
+
+        ranking = data.get('ranking')
+        if ranking is None:
+            request_count = USER_STATE[session_id].get("request_count", 0)
+            ranking = 2 if request_count < 3 else 1
+            USER_STATE[session_id]["request_count"] = request_count + 1
+        else:
+            ranking = int(ranking)
+        logging.info(f"[recipe-suggestions] Ranking value: {ranking}")
 
         params = {
             "ingredients": ",".join(ingredients),
