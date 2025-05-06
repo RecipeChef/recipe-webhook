@@ -11,7 +11,7 @@ from clarifai_grpc.grpc.api import service_pb2, service_pb2_grpc
 from clarifai_grpc.grpc.api import resources_pb2
 from clarifai_grpc.grpc.api.status import status_code_pb2
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, firestore, auth
 
 # App setup
 app = Flask(__name__)
@@ -435,6 +435,16 @@ def get_more_similar_recipes(session_id):
             break
 
     return collected_recipes
+
+def get_authenticated_user_id():
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise ValueError("Missing or malformed Authorization header")
+
+    id_token = auth_header.split('Bearer ')[-1]
+    decoded_token = auth.verify_id_token(id_token)
+    return decoded_token['uid']  # Unique Firebase user ID
+
 
 
 if __name__ == "__main__":
