@@ -11,7 +11,7 @@ from clarifai_grpc.grpc.api import service_pb2, service_pb2_grpc
 from clarifai_grpc.grpc.api import resources_pb2
 from clarifai_grpc.grpc.api.status import status_code_pb2
 import firebase_admin
-from firebase_admin import credentials, firestore, auth
+from firebase_admin import credentials, firestore
 
 # App setup
 app = Flask(__name__)
@@ -41,15 +41,6 @@ cred = credentials.Certificate("/etc/secrets/firebase_key.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-def get_authenticated_user_id():
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise ValueError("Missing or malformed Authorization header")
-
-    id_token = auth_header.split('Bearer ')[-1]
-    decoded_token = auth.verify_id_token(id_token)
-    return decoded_token['uid']  # Unique Firebase user ID
-
 # === /chat ===
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -57,16 +48,10 @@ def chat():
     
     if not user_message:
         return jsonify({"error": "Missing 'message' field in request"}), 400
-
-    try:
-        user_id = get_authenticated_user_id()
-    except Exception as e:
-        return jsonify({"error": f"Authentication failed: {str(e)}"}), 401
-
         
     # session_id = "user-session-id"
-    # session_id = request.json.get("session_id", "user-session-id")
-    session_id = user_id
+    session_id = request.json.get("session_id", "user-session-id")
+
 
     session = dialogflow_session_client.session_path(DIALOGFLOW_PROJECT_ID, session_id)
     text_input = dialogflow.TextInput(text=user_message, language_code="en")
@@ -76,7 +61,7 @@ def chat():
     intent_name = response.query_result.intent.display_name
 
     if intent_name == "MoreRecipesIntent":
-        return handle_more_recipes()
+        return handle_more_recipes(session_id)
 
     elif intent_name == "TextIngredientsIntent":
         # Extract ingredients from the raw message text
@@ -98,22 +83,21 @@ def chat():
             "request_count": 0
         }
         # Reuse /recipe-suggestions logic
-        # request_data = {"ingredients": ingredients, "session_id": session_id}
-        request_data = {"ingredients": ingredients}
+        request_data = {"ingredients": ingredients, "session_id": session_id}
         with app.test_request_context('/recipe-suggestions', method='POST', json=request_data):
-            # return recipe_suggestions(session_id=session_id)
             return recipe_suggestions()
             
     elif intent_name == "WhatCanICookTodayIntent":
+        user_id = session_id  # Or extract from request if you support real user IDs
         recipe_ids = get_user_recipe_ids(user_id)
         USER_STATE[session_id] = {
             "base_recipe_ids": recipe_ids,
             "shown_similar_ids": []
         }
 
+
         if not recipe_ids:
             return jsonify({"reply": "You have no favorite or planned recipes to base suggestions on."})
-
         collected_recipes = []
         seen_ids = set()
 
@@ -136,7 +120,7 @@ def chat():
                         break
             if len(collected_recipes) == 10:
                 break
-
+    
         return jsonify({"reply": "Here are some ideas based on your taste!", "recipes": collected_recipes})
         
     # else:
@@ -148,7 +132,6 @@ def chat():
 @app.route('/analyze-image', methods=['POST'])
 def analyze_image():
     try:
-        user_id = get_authenticated_user_id()
         UNWANTED_WORDS = {"aliment", "micronutrient", "pasture", "comestible"}
         CONFIDENCE_THRESHOLD = 0.6
 
@@ -185,7 +168,7 @@ def analyze_image():
             if concept.value > CONFIDENCE_THRESHOLD and concept.name not in UNWANTED_WORDS:
                 ingredients.append(concept.name)
 
-        USER_STATE[user_id] = {
+        USER_STATE["user-session-id"] = {
             "ingredients": ingredients,
             "shown_recipe_ids": [],
             "chosen_recipe": None #It will be removed later
@@ -201,14 +184,9 @@ def analyze_image():
 @app.route('/recipe-suggestions', methods=['POST'])
 def recipe_suggestions():
     try:
-        try:
-            session_id = get_authenticated_user_id()
-        except Exception as e:
-            return jsonify({"error": f"Authentication failed: {str(e)}"}), 401
-            
         data = request.json
         ingredients = data.get('ingredients', [])
-        # session_id = data.get('session_id', 'user-session-id')
+        session_id = data.get('session_id', 'user-session-id')
         
         logging.info(f"[recipe-suggestions] Session: {session_id}") #added to see on render
         logging.info(f"[recipe-suggestions] Ingredients used: {ingredients}") #added to see on render
@@ -285,13 +263,8 @@ def recipe_suggestions():
         return jsonify({"error": str(e)}), 500
 
 # === /handle-more-recipes ===
-def handle_more_recipes():
+def handle_more_recipes(session_id):
     try:
-        # user_id = get_authenticated_user_id()
-        # session_id = user_id
-        session_id = get_authenticated_user_id()
-
-        
         user_data = USER_STATE.get(session_id)
         logging.info(f"User state for {session_id}: {user_data}") #added for test
         # if not user_data or not user_data.get("ingredients"):
@@ -462,9 +435,6 @@ def get_more_similar_recipes(session_id):
             break
 
     return collected_recipes
-
-
-
 
 
 if __name__ == "__main__":
