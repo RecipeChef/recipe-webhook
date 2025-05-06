@@ -41,6 +41,15 @@ cred = credentials.Certificate("/etc/secrets/firebase_key.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
+def get_authenticated_user_id():
+    auth_header = request.headers.get('Authorization')
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise ValueError("Missing or malformed Authorization header")
+
+    id_token = auth_header.split('Bearer ')[-1]
+    decoded_token = auth.verify_id_token(id_token)
+    return decoded_token['uid']  # Unique Firebase user ID
+
 # === /chat ===
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -48,6 +57,12 @@ def chat():
     
     if not user_message:
         return jsonify({"error": "Missing 'message' field in request"}), 400
+
+    try:
+        user_id = get_authenticated_user_id()
+    except Exception as e:
+        return jsonify({"error": f"Authentication failed: {str(e)}"}), 401
+
         
     # session_id = "user-session-id"
     session_id = request.json.get("session_id", "user-session-id")
@@ -88,16 +103,15 @@ def chat():
             return recipe_suggestions()
             
     elif intent_name == "WhatCanICookTodayIntent":
-        user_id = session_id  # Or extract from request if you support real user IDs
         recipe_ids = get_user_recipe_ids(user_id)
         USER_STATE[session_id] = {
             "base_recipe_ids": recipe_ids,
             "shown_similar_ids": []
         }
 
-
         if not recipe_ids:
             return jsonify({"reply": "You have no favorite or planned recipes to base suggestions on."})
+
         collected_recipes = []
         seen_ids = set()
 
@@ -120,7 +134,7 @@ def chat():
                         break
             if len(collected_recipes) == 10:
                 break
-    
+
         return jsonify({"reply": "Here are some ideas based on your taste!", "recipes": collected_recipes})
         
     # else:
