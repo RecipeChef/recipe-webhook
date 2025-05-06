@@ -68,8 +68,6 @@ def chat():
     # session_id = request.json.get("session_id", "user-session-id")
     session_id = user_id
 
-
-
     session = dialogflow_session_client.session_path(DIALOGFLOW_PROJECT_ID, session_id)
     text_input = dialogflow.TextInput(text=user_message, language_code="en")
     query_input = dialogflow.QueryInput(text=text_input)
