@@ -304,8 +304,11 @@ def recipe_suggestions():
         ]
 
         
-        logging.info(f"[recipe-suggestions] Returned {len(new_recipes)} new recipes") #added to see on render
-        logging.info(f"[recipe-suggestions] Recipe IDs: {[r['id'] for r in new_recipes]}") #added to see on render
+        # logging.info(f"[recipe-suggestions] Returned {len(new_recipes)} new recipes") #added to see on render. Commented 06/05/2025 in 17.51
+        logging.info(f"[recipe-suggestions] Returned {len(basic_recipes)} basic and {len(complex_recipes)} complex recipes")
+
+        # logging.info(f"[recipe-suggestions] Recipe IDs: {[r['id'] for r in new_recipes]}") #added to see on render. Commented 06/05/2025 in 17.51
+        logging.info(f"[recipe-suggestions] Recipe IDs: {[r['id'] for r in basic_recipes + complex_recipes]}")
         # return jsonify({"recipes": new_recipes}) #Commented 06/05/2025 in 17.51
         return jsonify({
             "basic_recipes": USER_STATE[session_id].get("basic_recipes", []),
