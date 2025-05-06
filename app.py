@@ -101,7 +101,8 @@ def chat():
         # request_data = {"ingredients": ingredients, "session_id": session_id}
         request_data = {"ingredients": ingredients}
         with app.test_request_context('/recipe-suggestions', method='POST', json=request_data):
-            return recipe_suggestions(session_id=session_id)
+            # return recipe_suggestions(session_id=session_id)
+            return recipe_suggestions()
             
     elif intent_name == "WhatCanICookTodayIntent":
         recipe_ids = get_user_recipe_ids(user_id)
