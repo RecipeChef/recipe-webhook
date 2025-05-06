@@ -65,7 +65,9 @@ def chat():
 
         
     # session_id = "user-session-id"
-    session_id = request.json.get("session_id", "user-session-id")
+    # session_id = request.json.get("session_id", "user-session-id")
+    session_id = user_id
+
 
 
     session = dialogflow_session_client.session_path(DIALOGFLOW_PROJECT_ID, session_id)
@@ -76,7 +78,7 @@ def chat():
     intent_name = response.query_result.intent.display_name
 
     if intent_name == "MoreRecipesIntent":
-        return handle_more_recipes(session_id)
+        return handle_more_recipes()
 
     elif intent_name == "TextIngredientsIntent":
         # Extract ingredients from the raw message text
@@ -98,9 +100,10 @@ def chat():
             "request_count": 0
         }
         # Reuse /recipe-suggestions logic
-        request_data = {"ingredients": ingredients, "session_id": session_id}
+        # request_data = {"ingredients": ingredients, "session_id": session_id}
+        request_data = {"ingredients": ingredients}
         with app.test_request_context('/recipe-suggestions', method='POST', json=request_data):
-            return recipe_suggestions()
+            return recipe_suggestions(session_id=session_id)
             
     elif intent_name == "WhatCanICookTodayIntent":
         recipe_ids = get_user_recipe_ids(user_id)
@@ -146,6 +149,7 @@ def chat():
 @app.route('/analyze-image', methods=['POST'])
 def analyze_image():
     try:
+        user_id = get_authenticated_user_id()
         UNWANTED_WORDS = {"aliment", "micronutrient", "pasture", "comestible"}
         CONFIDENCE_THRESHOLD = 0.6
 
@@ -182,7 +186,7 @@ def analyze_image():
             if concept.value > CONFIDENCE_THRESHOLD and concept.name not in UNWANTED_WORDS:
                 ingredients.append(concept.name)
 
-        USER_STATE["user-session-id"] = {
+        USER_STATE[user_id] = {
             "ingredients": ingredients,
             "shown_recipe_ids": [],
             "chosen_recipe": None #It will be removed later
@@ -198,9 +202,14 @@ def analyze_image():
 @app.route('/recipe-suggestions', methods=['POST'])
 def recipe_suggestions():
     try:
+        try:
+            session_id = get_authenticated_user_id()
+        except Exception as e:
+            return jsonify({"error": f"Authentication failed: {str(e)}"}), 401
+            
         data = request.json
         ingredients = data.get('ingredients', [])
-        session_id = data.get('session_id', 'user-session-id')
+        # session_id = data.get('session_id', 'user-session-id')
         
         logging.info(f"[recipe-suggestions] Session: {session_id}") #added to see on render
         logging.info(f"[recipe-suggestions] Ingredients used: {ingredients}") #added to see on render
@@ -277,8 +286,13 @@ def recipe_suggestions():
         return jsonify({"error": str(e)}), 500
 
 # === /handle-more-recipes ===
-def handle_more_recipes(session_id):
+def handle_more_recipes():
     try:
+        # user_id = get_authenticated_user_id()
+        # session_id = user_id
+        session_id = get_authenticated_user_id()
+
+        
         user_data = USER_STATE.get(session_id)
         logging.info(f"User state for {session_id}: {user_data}") #added for test
         # if not user_data or not user_data.get("ingredients"):
@@ -450,14 +464,7 @@ def get_more_similar_recipes(session_id):
 
     return collected_recipes
 
-def get_authenticated_user_id():
-    auth_header = request.headers.get('Authorization')
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise ValueError("Missing or malformed Authorization header")
 
-    id_token = auth_header.split('Bearer ')[-1]
-    decoded_token = auth.verify_id_token(id_token)
-    return decoded_token['uid']  # Unique Firebase user ID
 
 
 
