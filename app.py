@@ -267,8 +267,14 @@ def handle_more_recipes(session_id):
     try:
         user_data = USER_STATE.get(session_id)
         logging.info(f"User state for {session_id}: {user_data}") #added for test
+        # if not user_data or not user_data.get("ingredients"):
+        #     return jsonify({"reply": "Sorry, I couldn't find your ingredients. Please send a new image."})
+        # ✅ New fallback logic
+        if user_data and "base_recipe_ids" in user_data:
+            return get_more_similar_recipes(session_id)
         if not user_data or not user_data.get("ingredients"):
             return jsonify({"reply": "Sorry, I couldn't find your ingredients. Please send a new image."})
+
 
         if "base_recipe_ids" in user_data:
             similar_recipes = get_more_similar_recipes(session_id)
