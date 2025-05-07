@@ -224,7 +224,10 @@ def recipe_suggestions():
 
         shown_key = f"shown_recipe_ids_{complexity}"
         USER_STATE[session_id].setdefault(shown_key, [])
-        already_shown = set(USER_STATE[session_id][shown_key])
+        # already_shown = set(USER_STATE[session_id][shown_key])
+        already_shown = set(USER_STATE[session_id].get("shown_recipe_ids_basic", [])) | \
+                        set(USER_STATE[session_id].get("shown_recipe_ids_complex", []))
+
         logging.info(f"[recipe-suggestions] Already shown for {session_id}: {already_shown}")
 
         url = "https://api.spoonacular.com/recipes/findByIngredients"
@@ -319,7 +322,9 @@ def handle_more_recipes(session_id):
 
         shown_key = f"shown_recipe_ids_{complexity}"
         user_data.setdefault(shown_key, [])
-        already_shown = set(user_data[shown_key])
+        # already_shown = set(user_data[shown_key])
+        already_shown = set(USER_STATE[session_id].get("shown_recipe_ids_basic", [])) | \
+                        set(USER_STATE[session_id].get("shown_recipe_ids_complex", []))
         logging.info(f"[handle_more_recipes] Already shown for {session_id}: {already_shown}")
 
         # complexity = user_data.get("complexity", "basic")  # default to basic
