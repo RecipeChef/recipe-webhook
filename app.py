@@ -385,6 +385,15 @@ def handle_more_recipes(session_id):
         logging.info(f"[handle_more_recipes] Returned {len(new_recipes)} new recipes") # added to see on render
         logging.info(f"[handle_more_recipes] Recipe IDs: {[r['id'] for r in new_recipes]}") # added to see on render
         user_data[cache_key] += new_recipes
+
+        for r in new_recipes:
+            rid = r["id"]
+            if rid not in USER_STATE[session_id]["shown_recipe_ids_basic"]:
+                USER_STATE[session_id]["shown_recipe_ids_basic"].append(rid)
+            if rid not in USER_STATE[session_id]["shown_recipe_ids_complex"]:
+                USER_STATE[session_id]["shown_recipe_ids_complex"].append(rid)
+
+
         # Optional: limit memory growth
         user_data[cache_key] = user_data[cache_key][-30:]
         return jsonify({"reply": f"Here are more recipe suggestions! (IDs: {recipe_ids})", "recipes": new_recipes})
