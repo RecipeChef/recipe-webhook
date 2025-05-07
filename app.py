@@ -219,6 +219,15 @@ def recipe_suggestions():
         # logging.info(f"[recipe-suggestions] Ranking value: {ranking}") #added to see on render
         logging.info(f"[recipe-suggestions] Complexity: {complexity}, Ranking: {ranking}")
         # USER_STATE[session_id]["request_count"] = request_count + 1 # added 04/05/2025
+        # ✅ Initialize recipes_by_complexity if not present
+        if "recipes_by_complexity" not in USER_STATE[session_id]:
+            USER_STATE[session_id]["recipes_by_complexity"] = {}
+
+        # ✅ Return cached recipes if available
+        cached_recipes = USER_STATE[session_id]["recipes_by_complexity"].get(complexity)
+        if cached_recipes:
+            logging.info(f"[recipe-suggestions] Returning cached {complexity} recipes")
+            return jsonify({"recipes": cached_recipes})
 
         params = {
             "ingredients": ",".join(ingredients),
@@ -257,6 +266,8 @@ def recipe_suggestions():
 
         USER_STATE[session_id].setdefault("shown_recipe_ids", [])
         USER_STATE[session_id]["shown_recipe_ids"] += [r["id"] for r in new_recipes if r["id"] not in USER_STATE[session_id]["shown_recipe_ids"]]
+        # ✅ Cache these recipes for current complexity
+        USER_STATE[session_id]["recipes_by_complexity"][complexity] = new_recipes
         
         logging.info(f"[recipe-suggestions] Returned {len(new_recipes)} new recipes") #added to see on render
         logging.info(f"[recipe-suggestions] Recipe IDs: {[r['id'] for r in new_recipes]}") #added to see on render
