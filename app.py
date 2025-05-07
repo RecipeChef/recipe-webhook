@@ -80,7 +80,7 @@ def chat():
         USER_STATE[session_id] = {
             "ingredients": ingredients,
             "shown_recipe_ids": [],
-            "request_count": 0
+            # "request_count": 0
         }
         # Reuse /recipe-suggestions logic
         request_data = {"ingredients": ingredients, "session_id": session_id}
@@ -204,17 +204,21 @@ def recipe_suggestions():
             USER_STATE[session_id] = {}
         USER_STATE[session_id]["ingredients"] = ingredients
         USER_STATE[session_id].setdefault("shown_recipe_ids", [])
-        USER_STATE[session_id].setdefault("request_count", 0) #here
+        # USER_STATE[session_id].setdefault("request_count", 0) #here
 
         already_shown = set(USER_STATE[session_id].get("shown_recipe_ids", []))
         logging.info(f"[recipe-suggestions] Already shown for {session_id}: {already_shown}")
 
         url = "https://api.spoonacular.com/recipes/findByIngredients"
         
-        request_count = USER_STATE[session_id].get("request_count", 0) # added 04/05/2025
-        ranking = 2 if request_count < 3 else 1 # added 04/05/2025
-        logging.info(f"[recipe-suggestions] Ranking value: {ranking}") #added to see on render
-        USER_STATE[session_id]["request_count"] = request_count + 1 # added 04/05/2025
+        # request_count = USER_STATE[session_id].get("request_count", 0) # added 04/05/2025
+        # ranking = 2 if request_count < 3 else 1 # added 04/05/2025
+        complexity = data.get("complexity", "basic")
+        ranking = 2 if complexity == "basic" else 1
+        USER_STATE[session_id]["complexity"] = complexity
+        # logging.info(f"[recipe-suggestions] Ranking value: {ranking}") #added to see on render
+        logging.info(f"[recipe-suggestions] Complexity: {complexity}, Ranking: {ranking}")
+        # USER_STATE[session_id]["request_count"] = request_count + 1 # added 04/05/2025
 
         params = {
             "ingredients": ",".join(ingredients),
@@ -291,10 +295,14 @@ def handle_more_recipes(session_id):
         already_shown = set(user_data.get("shown_recipe_ids", []))
         logging.info(f"[handle_more_recipes] Already shown for {session_id}: {already_shown}")
 
-        request_count = user_data.get("request_count", 0) # added 04/05/2025
-        ranking = 2 if request_count < 3 else 1 # added 04/05/2025
-        logging.info(f"[handle_more_recipes] Ranking value: {ranking}") #added to see on render
-        user_data["request_count"] = request_count + 1 # added 04/05/2025
+        # request_count = user_data.get("request_count", 0) # added 04/05/2025
+        # ranking = 2 if request_count < 3 else 1 # added 04/05/2025
+        # logging.info(f"[handle_more_recipes] Ranking value: {ranking}") #added to see on render
+        # user_data["request_count"] = request_count + 1 # added 04/05/2025
+
+        complexity = user_data.get("complexity", "basic")  # Use stored complexity
+        ranking = 2 if complexity == "basic" else 1
+        logging.info(f"[handle-more-recipes] Complexity: {complexity}, Ranking: {ranking}")
 
         url = "https://api.spoonacular.com/recipes/findByIngredients"
         params = {
