@@ -187,60 +187,75 @@ def recipe_suggestions():
         data = request.json
         ingredients = data.get('ingredients', [])
         session_id = data.get('session_id', 'user-session-id')
-        complexity = data.get("complexity", "basic")
+        
+        logging.info(f"[recipe-suggestions] Session: {session_id}") #added to see on render
+        logging.info(f"[recipe-suggestions] Ingredients used: {ingredients}") #added to see on render
 
-        if session_id not in USER_STATE:
+
+        if not ingredients:
+            return jsonify({"error": "No ingredients provided."}), 400
+
+        # if session_id not in USER_STATE:
+        #     USER_STATE[session_id] = {"shown_recipe_ids": [],
+        #                              "ingredients": ingredients, # added 04/05/2025
+        #                              "request_count": 0} # added 04/05/2025
+
+        if session_id not in USER_STATE: #added for to remove unwanted ingredients till
             USER_STATE[session_id] = {}
+        USER_STATE[session_id]["ingredients"] = ingredients
+        USER_STATE[session_id].setdefault("shown_recipe_ids", [])
+        USER_STATE[session_id].setdefault("request_count", 0) #here
 
-        USER_STATE[session_id].setdefault("ingredients", ingredients)
-        USER_STATE[session_id].setdefault("shown_recipe_ids_by_complexity", {})
-        USER_STATE[session_id].setdefault("recipes_by_complexity", {})
-        USER_STATE[session_id]["complexity"] = complexity
+        already_shown = set(USER_STATE[session_id].get("shown_recipe_ids", []))
+        logging.info(f"[recipe-suggestions] Already shown for {session_id}: {already_shown}")
 
-        already_shown = set(USER_STATE[session_id]["shown_recipe_ids_by_complexity"].get(complexity, []))
-        cached_recipes = USER_STATE[session_id]["recipes_by_complexity"].get(complexity)
-        if cached_recipes:
-            logging.info(f"[recipe-suggestions] Returning cached {complexity} recipes")
-            return jsonify({"recipes": cached_recipes})
-
-        ranking = 2 if complexity == "basic" else 1
+        url = "https://api.spoonacular.com/recipes/findByIngredients"
+        
+        request_count = USER_STATE[session_id].get("request_count", 0) # added 04/05/2025
+        ranking = 2 if request_count < 3 else 1 # added 04/05/2025
+        logging.info(f"[recipe-suggestions] Ranking value: {ranking}") #added to see on render
+        USER_STATE[session_id]["request_count"] = request_count + 1 # added 04/05/2025
 
         params = {
             "ingredients": ",".join(ingredients),
-            "number": 60,
-            "ranking": ranking,
+            "number": 60, #changed to 60 from 15
+            "ranking": ranking, # added 04/05/2025
             "ignorePantry": True,
-            "sort": "random",
+            "sort": "random", #"sort": "random",
             "apiKey": SPOONACULAR_API_KEY
         }
 
         new_recipes = []
         attempts = 0
 
-        while len(new_recipes) < 10 and attempts < 5:
-            response = requests.get("https://api.spoonacular.com/recipes/findByIngredients", params=params)
+        while len(new_recipes) < 10 and attempts < 5: #changed from 5 to 10
+            response = requests.get(url, params=params)
             recipes_data = response.json()
+            # recipes_data.sort(
+            #     key=lambda r: (-len(r.get("usedIngredients", [])), len(r.get("missedIngredients", [])))
+            # )
+
             for recipe in recipes_data:
                 if recipe["id"] not in already_shown:
                     new_recipes.append({
                         "id": recipe["id"],
                         "title": recipe["title"],
                         "image": recipe["image"],
-                        "usedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("usedIngredients", [])],
-                        "missedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("missedIngredients", [])]
+                        # "usedIngredients": [i["name"] for i in recipe.get("usedIngredients", [])],
+                        "usedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("usedIngredients", [])], #UsedIngredients id's will be sent to Flutter
+                        # "missedIngredients": [i["name"] for i in recipe.get("missedIngredients", [])]
+                        "missedIngredients": [{"id": i["id"], "name": i["name"]} for i in recipe.get("missedIngredients", [])] #MissedIngredients id's will be sent to Flutter
                     })
                     already_shown.add(recipe["id"])
-                    if len(new_recipes) == 10:
+                    if len(new_recipes) == 10: #changed from 5 to 10
                         break
             attempts += 1
 
-        if not new_recipes:
-            return jsonify({"reply": "No new recipes found."})
-
-        USER_STATE[session_id]["shown_recipe_ids_by_complexity"].setdefault(complexity, [])
-        USER_STATE[session_id]["shown_recipe_ids_by_complexity"][complexity] += [r["id"] for r in new_recipes]
-        USER_STATE[session_id]["recipes_by_complexity"][complexity] = new_recipes
-
+        USER_STATE[session_id].setdefault("shown_recipe_ids", [])
+        USER_STATE[session_id]["shown_recipe_ids"] += [r["id"] for r in new_recipes if r["id"] not in USER_STATE[session_id]["shown_recipe_ids"]]
+        
+        logging.info(f"[recipe-suggestions] Returned {len(new_recipes)} new recipes") #added to see on render
+        logging.info(f"[recipe-suggestions] Recipe IDs: {[r['id'] for r in new_recipes]}") #added to see on render
         return jsonify({"recipes": new_recipes})
 
     except Exception as e:
@@ -260,6 +275,7 @@ def handle_more_recipes(session_id):
         if not user_data or not user_data.get("ingredients"):
             return jsonify({"reply": "Sorry, I couldn't find your ingredients. Please send a new image."})
 
+
         if "base_recipe_ids" in user_data:
             similar_recipes = get_more_similar_recipes(session_id)
             if not similar_recipes:
@@ -275,25 +291,10 @@ def handle_more_recipes(session_id):
         already_shown = set(user_data.get("shown_recipe_ids", []))
         logging.info(f"[handle_more_recipes] Already shown for {session_id}: {already_shown}")
 
-        if "recipes_by_complexity" not in USER_STATE[session_id]:
-            USER_STATE[session_id]["recipes_by_complexity"] = {}
-        
-        # Check if we already have cached recipes for this complexity
-        cached_recipes = USER_STATE[session_id]["recipes_by_complexity"].get(complexity)
-        if cached_recipes:
-            logging.info(f"[recipe-suggestions] Returning cached {complexity} recipes")
-            return jsonify({"recipes": cached_recipes})
-
-
-        # request_count = user_data.get("request_count", 0) # added 04/05/2025
-        # ranking = 2 if request_count < 3 else 1 # added 04/05/2025
-        # logging.info(f"[handle_more_recipes] Ranking value: {ranking}") #added to see on render
-        # user_data["request_count"] = request_count + 1 # added 04/05/2025
-
-        complexity = user_data.get("complexity", "basic")  # default to basic
-        ranking = 2 if complexity == "basic" else 1
-        logging.info(f"[handle-more-recipes] Complexity: {complexity}, Ranking: {ranking}")
-
+        request_count = user_data.get("request_count", 0) # added 04/05/2025
+        ranking = 2 if request_count < 3 else 1 # added 04/05/2025
+        logging.info(f"[handle_more_recipes] Ranking value: {ranking}") #added to see on render
+        user_data["request_count"] = request_count + 1 # added 04/05/2025
 
         url = "https://api.spoonacular.com/recipes/findByIngredients"
         params = {
@@ -336,8 +337,7 @@ def handle_more_recipes(session_id):
         recipe_ids = [r["id"] for r in new_recipes]
         if not new_recipes:
             return jsonify({"reply": "I’ve already shown you all the matching recipes. Try new ingredients!", "recipes": []})
-        USER_STATE[session_id]["recipes_by_complexity"][complexity] = new_recipes
-        
+            
         logging.info(f"[handle_more_recipes] Returned {len(new_recipes)} new recipes") # added to see on render
         logging.info(f"[handle_more_recipes] Recipe IDs: {[r['id'] for r in new_recipes]}") # added to see on render
         return jsonify({"reply": f"Here are more recipe suggestions! (IDs: {recipe_ids})", "recipes": new_recipes})
