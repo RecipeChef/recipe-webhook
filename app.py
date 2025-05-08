@@ -12,6 +12,9 @@ from clarifai_grpc.grpc.api import resources_pb2
 from clarifai_grpc.grpc.api.status import status_code_pb2
 import firebase_admin
 from firebase_admin import credentials, firestore
+import os
+import google.generativeai as genai
+
 
 # App setup
 app = Flask(__name__)
@@ -29,6 +32,10 @@ CLARIFAI_API_KEY = "4a4ea9088cfa42c29e63f7b6806ad272"
 clarifai_channel = ClarifaiChannel.get_grpc_channel()
 clarifai_stub = service_pb2_grpc.V2Stub(clarifai_channel)
 clarifai_metadata = (("authorization", f"Key {CLARIFAI_API_KEY}"),)
+
+# === 🔐 Gemini Setup ===
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+gemini_model = genai.GenerativeModel("models/gemini-2.0-flash")
 
 # === 🔐 Spoonacular Setup ===
 SPOONACULAR_API_KEY = "b97364cb57314c0fb18b8d7e93d7e5fc"
@@ -99,7 +106,6 @@ def chat():
             "shown_similar_ids": []
         }
 
-
         if not recipe_ids:
             return jsonify({"reply": "You have no favorite or planned recipes to base suggestions on."})
         collected_recipes = []
@@ -126,6 +132,10 @@ def chat():
                 break
     
         return jsonify({"reply": "Here are some ideas based on your taste!", "recipes": collected_recipes})
+
+    elif intent_name == "Default Fallback Intent":
+        logging.info(f"[chat] Falling back to Gemini for: {user_message}")
+        return handle_gemini_fallback(session_id, user_message)
         
     # else:
     # return jsonify({'reply': body['queryResult']['fulfillmentText']})
@@ -497,6 +507,46 @@ def get_more_similar_recipes(session_id):
             break
 
     return collected_recipes
+
+def handle_gemini_fallback(session_id, user_message):
+    try:
+        # Get user data (recipe or ingredients)
+        user_data = USER_STATE.get(session_id, {})
+        recipe = user_data.get("chosen_recipe", {})
+        ingredients = user_data.get("ingredients", [])
+
+        # Prepare context string
+        context_parts = []
+
+        if recipe:
+            title = recipe.get("title", "this meal")
+            context_parts.append(f"Recipe title: {title}")
+            if "ingredients" in recipe:
+                context_parts.append(f"Ingredients: {', '.join(recipe['ingredients'])}")
+        elif ingredients:
+            context_parts.append(f"Ingredients provided by the user: {', '.join(ingredients)}")
+        else:
+            context_parts.append("No specific meal or ingredients were provided.")
+
+        # Clean and safe prompt string
+        prompt = (
+            f"You are a smart cooking assistant.\n"
+            f"The user asked: \"{user_message}\"\n\n"
+            f"Context:\n{chr(10).join(context_parts)}\n\n"
+            "Provide a helpful, concise, and natural-language answer that would make sense "
+            "in a meal planning or recipe suggestion app."
+        )
+
+        logging.info(f"[Gemini Fallback] Prompt to Gemini:\n{prompt}")
+
+        # Generate Gemini response
+        response = gemini_model.generate_content(prompt)
+        return jsonify({"reply": response.text})
+
+    except Exception as e:
+        logging.exception("Gemini fallback failed")
+        return jsonify({"reply": "Sorry, I couldn't generate a response right now."})
+
 
 
 if __name__ == "__main__":
