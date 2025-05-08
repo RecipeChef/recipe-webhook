@@ -92,6 +92,7 @@ def chat():
             "recipes_complex": [],   # CLEAR complex cache
             "shown_recipe_ids_basic": [],
             "shown_recipe_ids_complex": []
+            "complexity": "basic",  # 👈 reset default here
         }
         # Reuse /recipe-suggestions logic
         request_data = {"ingredients": ingredients, "session_id": session_id}
@@ -189,7 +190,8 @@ def analyze_image():
             "recipes_basic": [],
             "recipes_complex": [],
             "shown_recipe_ids_basic": [],
-            "shown_recipe_ids_complex": []
+            "shown_recipe_ids_complex": [],
+            "complexity": "basic",  # 👈 reset default here
         }
 
 
