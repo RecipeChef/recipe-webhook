@@ -388,10 +388,16 @@ def handle_more_recipes(session_id):
 
         for r in new_recipes:
             rid = r["id"]
-            if rid not in USER_STATE[session_id]["shown_recipe_ids_basic"]:
-                USER_STATE[session_id]["shown_recipe_ids_basic"].append(rid)
-            if rid not in USER_STATE[session_id]["shown_recipe_ids_complex"]:
-                USER_STATE[session_id]["shown_recipe_ids_complex"].append(rid)
+            if rid not in user_data[shown_key]:
+                user_data[shown_key].append(rid)
+
+
+        # for r in new_recipes:
+        #     rid = r["id"]
+        #     if rid not in USER_STATE[session_id]["shown_recipe_ids_basic"]:
+        #         USER_STATE[session_id]["shown_recipe_ids_basic"].append(rid)
+        #     if rid not in USER_STATE[session_id]["shown_recipe_ids_complex"]:
+        #         USER_STATE[session_id]["shown_recipe_ids_complex"].append(rid)
 
 
         # Optional: limit memory growth
