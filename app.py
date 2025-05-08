@@ -258,7 +258,10 @@ def recipe_suggestions():
         # complexity = data.get("complexity", "basic")
         ranking = 2 if complexity == "basic" else 1
         logging.info(f"[recipe-suggestions] Complexity: {complexity}, Ranking: {ranking}")
-        USER_STATE[session_id]["complexity"] = complexity
+        # USER_STATE[session_id]["complexity"] = complexity
+        # ✅ Prevent accidental overwrite when not explicitly sent
+        if 'complexity' in data:
+            USER_STATE[session_id]["complexity"] = complexity
 
         params = {
             "ingredients": ",".join(ingredients),
