@@ -224,6 +224,11 @@ def recipe_suggestions():
         USER_STATE[session_id]["ingredients"] = ingredients
         USER_STATE[session_id].setdefault("shown_recipe_ids", [])
         USER_STATE[session_id].setdefault("request_count", 0) #here
+        USER_STATE[session_id].setdefault("shown_recipe_ids_basic", [])
+        USER_STATE[session_id].setdefault("shown_recipe_ids_complex", [])
+        USER_STATE[session_id].setdefault("recipes_basic", [])
+        USER_STATE[session_id].setdefault("recipes_complex", [])
+
 
         # already_shown = set(USER_STATE[session_id].get("shown_recipe_ids", []))
         complexity = data.get("complexity", "basic") if 'complexity' in data else USER_STATE[session_id].get("complexity", "basic")
