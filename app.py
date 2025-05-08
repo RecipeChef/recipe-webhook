@@ -235,7 +235,8 @@ def recipe_suggestions():
         cache_key = f"recipes_{complexity}"
         if cache_key in USER_STATE[session_id] and USER_STATE[session_id][cache_key]:
             logging.info(f"[recipe-suggestions] Returning cached recipes for mode: {complexity}")
-            return jsonify({"recipes": USER_STATE[session_id][cache_key]})
+            return jsonify({"recipes": USER_STATE[session_id][cache_key][-10:]})
+            # return jsonify({"recipes": USER_STATE[session_id][cache_key]})
 
         shown_key = f"shown_recipe_ids_{complexity}"
         USER_STATE[session_id].setdefault(shown_key, [])
