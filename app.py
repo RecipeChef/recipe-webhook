@@ -38,7 +38,8 @@ genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 gemini_model = genai.GenerativeModel("models/gemini-2.0-flash")
 
 # === 🔐 Spoonacular Setup ===
-SPOONACULAR_API_KEY = "b97364cb57314c0fb18b8d7e93d7e5fc"
+SPOONACULAR_API_KEY = "d9aa75aad8ba43eebbe69f973e4433eb"
+#"b97364cb57314c0fb18b8d7e93d7e5fc"
 
 # === 🌟 In-memory user session state ===
 USER_STATE = {}
