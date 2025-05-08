@@ -235,6 +235,9 @@ def recipe_suggestions():
 
         # already_shown = set(USER_STATE[session_id].get("shown_recipe_ids", []))
         complexity = data.get("complexity", "basic") if 'complexity' in data else USER_STATE[session_id].get("complexity", "basic")
+        if 'complexity' in data:
+            USER_STATE[session_id]["complexity"] = complexity
+             
         cache_key = f"recipes_{complexity}"
         if cache_key in USER_STATE[session_id] and USER_STATE[session_id][cache_key]:
             logging.info(f"[recipe-suggestions] Returning cached recipes for mode: {complexity}")
@@ -260,8 +263,7 @@ def recipe_suggestions():
         logging.info(f"[recipe-suggestions] Complexity: {complexity}, Ranking: {ranking}")
         # USER_STATE[session_id]["complexity"] = complexity
         # ✅ Prevent accidental overwrite when not explicitly sent
-        if 'complexity' in data:
-            USER_STATE[session_id]["complexity"] = complexity
+       
 
         params = {
             "ingredients": ",".join(ingredients),
