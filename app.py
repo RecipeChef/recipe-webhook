@@ -530,7 +530,7 @@ def handle_gemini_fallback(session_id, user_message):
 
         # Clean and safe prompt string
         prompt = (
-            f"You are a smart cooking assistant.\n"
+            f"You are a smart cooking assistant."\n
             f"You are only allowed to talk about nourishment based questions with users"\n\n
             f"Do not talk about anything but nourishment based questions"\n\n
             f"All your responses need to be detailed, readable, sincere, and more human."\n\n
