@@ -305,7 +305,7 @@ def handle_more_recipes(session_id):
         logging.info(f"[handle_more_recipes] Already shown for {session_id}: {already_shown}")
 
         request_count = user_data.get("request_count", 0)  # added 04/05/2025
-        ranking = 2 if request_count < 3 else 1  # added 04/05/2025
+        ranking = 2 if request_count < 2 else 1  # added 04/05/2025
         logging.info(f"[handle_more_recipes] Ranking value: {ranking}")  # added to see on render
         user_data["request_count"] = request_count + 1  # added 04/05/2025
 
@@ -358,7 +358,8 @@ def handle_more_recipes(session_id):
 
         logging.info(f"[handle_more_recipes] Returned {len(new_recipes)} new recipes")  # added to see on render
         logging.info(f"[handle_more_recipes] Recipe IDs: {[r['id'] for r in new_recipes]}")  # added to see on render
-        return jsonify({"reply": f"Here are more recipe suggestions! (IDs: {recipe_ids})", "recipes": new_recipes})
+        #return jsonify({"reply": f"Here are more recipe suggestions! (IDs: {recipe_ids})", "recipes": new_recipes})
+        return jsonify({"reply": f"Here are more recipe suggestions!", "recipes": new_recipes})
 
     except Exception as e:
         logging.exception("More recipe fetch failed")
