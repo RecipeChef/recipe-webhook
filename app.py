@@ -86,7 +86,9 @@ def chat():
                 break
         # Normalize and split on commas or 'and'
         user_message_cleaned = user_message_cleaned.replace(" and ", ",")
-        ingredients = [i.strip() for i in user_message_cleaned.split(",") if i.strip()]
+        raw_items = re.split(r'[,\s]+', user_message_cleaned)
+        ingredients = [i.strip() for i in raw_items if i.strip()]
+        # ingredients = [i.strip() for i in user_message_cleaned.split(",") if i.strip()]
 
         # Clean common phrases
         # for prefix in ["what can i cook with", "what can i make with", "how can i cook with", "Can you recommend me a recipe with"]:
