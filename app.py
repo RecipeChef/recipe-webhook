@@ -14,6 +14,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import os
 import google.generativeai as genai
+import re
 
 # App setup
 app = Flask(__name__)
@@ -70,15 +71,30 @@ def chat():
 
     elif intent_name == "TextIngredientsIntent":
         # Extract ingredients from the raw message text
-        user_message_lower = user_message.lower()
+        # user_message_lower = user_message.lower()
+        user_message_cleaned = re.sub(r'[^\w\s,]', '', user_message.lower())
+        prefixes = [
+            "what can i cook with",
+            "what can i make with",
+            "how can i cook with",
+            "can you recommend me a recipe with"
+        ]
+
+        for prefix in prefixes:
+            if user_message_cleaned.startswith(prefix):
+                user_message_cleaned = user_message_cleaned[len(prefix):].strip()
+                break
+        # Normalize and split on commas or 'and'
+        user_message_cleaned = user_message_cleaned.replace(" and ", ",")
+        ingredients = [i.strip() for i in user_message_cleaned.split(",") if i.strip()]
 
         # Clean common phrases
-        for prefix in ["what can i cook with", "what can i make with", "how can i cook with", "Can you recommend me a recipe with"]:
-            if user_message_lower.startswith(prefix):
-                user_message_lower = user_message_lower.replace(prefix, "")
+        # for prefix in ["what can i cook with", "what can i make with", "how can i cook with", "Can you recommend me a recipe with"]:
+        #     if user_message_lower.startswith(prefix):
+        #         user_message_lower = user_message_lower.replace(prefix, "")
 
         # Example: Extract comma-separated words
-        ingredients = [i.strip() for i in user_message_lower.replace("and", ",").split(",") if i.strip()]
+        # ingredients = [i.strip() for i in user_message_lower.replace("and", ",").split(",") if i.strip()]
 
         logging.info(f"[chat] Parsed ingredients from text: {ingredients}")
 
