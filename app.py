@@ -73,7 +73,7 @@ def chat():
         user_message_lower = user_message.lower()
 
         # Clean common phrases
-        for prefix in ["what can i cook with", "what can i make with", "how can i cook with"]:
+        for prefix in ["what can i cook with", "what can i make with", "how can i cook with", "Can you recommend me a recipe with"]:
             if user_message_lower.startswith(prefix):
                 user_message_lower = user_message_lower.replace(prefix, "")
 
