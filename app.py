@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify #Yeni çalışan
 from PIL import Image
-# import base64
+import base64
 import io
 import logging
 import requests
