@@ -395,7 +395,7 @@ def get_user_recipe_ids(user_id):
         favorite_ids = [doc.id for doc in favorites_docs]
 
         # Fetch meal planner: each document has a field 'recipe_id'
-        planner_ref = db.collection("users").document(user_id).collection("mealplanner")
+        planner_ref = db.collection("users").document(user_id).collection("mealplanner").field("recipe_id")
         planner_docs = planner_ref.stream()
         for doc in planner_docs:
             data = doc.to_dict()
